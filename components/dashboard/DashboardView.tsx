@@ -34,19 +34,7 @@ type SlotRow = {
   user_id: string;
 };
 
-function startOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function endOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
-
-function intersects(slotStart: Date, slotEnd: Date, rangeStart: Date, rangeEnd: Date) {
+function intersects(slotStart: number, slotEnd: number, rangeStart: number, rangeEnd: number) {
   return slotStart < rangeEnd && slotEnd > rangeStart;
 }
 
@@ -60,6 +48,9 @@ export function DashboardView() {
   const [slots, setSlots] = useState<SlotRow[]>([]);
   const [memberCount, setMemberCount] = useState(0);
 
+  // Keep a unified point-in-time reference that refreshes whenever the active group changes
+  const [renderTimestamp, setRenderTimestamp] = useState(() => Date.now());
+
   async function load() {
     if (!groupId) {
       setEvents([]);
@@ -69,6 +60,8 @@ export function DashboardView() {
       setMemberCount(0);
       return;
     }
+
+    setRenderTimestamp(Date.now());
 
     const { data: memberRows } = await supabase
       .from("group_members")
@@ -115,6 +108,7 @@ export function DashboardView() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
   useEffect(() => {
@@ -124,12 +118,12 @@ export function DashboardView() {
 
     window.addEventListener("hangout:event-created", refresh);
     return () => window.removeEventListener("hangout:event-created", refresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
   const upcomingEvent = useMemo(() => {
-    const now = Date.now();
-    return events.find((e) => new Date(e.end_time).getTime() >= now) ?? null;
-  }, [events]);
+    return events.find((e) => new Date(e.end_time).getTime() >= renderTimestamp) ?? null;
+  }, [events, renderTimestamp]);
 
   const eventStats = useMemo(() => {
     if (!upcomingEvent) {
@@ -153,39 +147,45 @@ export function DashboardView() {
   const bestFreeSlotToday = useMemo(() => {
     if (!memberCount) return null;
 
-    const rangeStart = startOfDay(new Date());
-    const rangeEnd = endOfDay(new Date());
+    // Calculate pure immutable numeric intervals instead of processing changing objects inside loops
+    const baseDate = new Date(renderTimestamp);
+    baseDate.setHours(0, 0, 0, 0);
+    const rangeStartMs = baseDate.getTime();
+    
+    baseDate.setHours(23, 59, 59, 999);
+    const rangeEndMs = baseDate.getTime();
+    
     const stepMs = 60 * 60 * 1000;
 
-    for (let t = rangeStart.getTime(); t < rangeEnd.getTime(); t += stepMs) {
-      const slotStart = new Date(t);
-      const slotEnd = new Date(t + stepMs);
+    // Convert slots to immutable structures before computing matches
+    const mappedSlots = slots.map((s) => ({
+      start: new Date(s.starts_at).getTime(),
+      end: new Date(s.ends_at).getTime(),
+    }));
+
+    for (let t = rangeStartMs; t < rangeEndMs; t += stepMs) {
+      const slotStart = t;
+      const slotEnd = t + stepMs;
 
       let busyCount = 0;
-      for (const slot of slots) {
-        if (
-          intersects(
-            new Date(slot.starts_at),
-            new Date(slot.ends_at),
-            slotStart,
-            slotEnd
-          )
-        ) {
+      for (let i = 0; i < mappedSlots.length; i++) {
+        const slot = mappedSlots[i];
+        if (intersects(slot.start, slot.end, slotStart, slotEnd)) {
           busyCount++;
         }
       }
 
       if (busyCount === 0) {
-        return { start: slotStart, end: slotEnd };
+        return { start: new Date(slotStart), end: new Date(slotEnd) };
       }
     }
 
     return null;
-  }, [slots, memberCount]);
+  }, [slots, memberCount, renderTimestamp]);
 
   const planningIssues = useMemo(() => {
     return events
-      .filter((e) => new Date(e.end_time).getTime() >= Date.now())
+      .filter((e) => new Date(e.end_time).getTime() >= renderTimestamp)
       .map((event) => {
         const eventVotes = votes.filter((v) => v.event_id === event.id);
         const eventItems = items.filter((i) => i.event_id === event.id);
@@ -200,7 +200,7 @@ export function DashboardView() {
       })
       .filter((e) => e.missingLocation || e.missingVotes > 0 || e.missingItems > 0)
       .slice(0, 5);
-  }, [events, votes, items, memberCount]);
+  }, [events, votes, items, memberCount, renderTimestamp]);
 
   if (!groupId) {
     return (

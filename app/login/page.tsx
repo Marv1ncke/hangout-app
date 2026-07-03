@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
-type Mode = "login" | "register";
+type Mode = "login" | "register" | "forgot";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +27,24 @@ export default function LoginPage() {
     }
     checkSession();
   }, [router]);
+
+  async function handleForgotPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setErrorText("");
+    setMessage("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/update-password`,
+    });
+
+    setLoading(false);
+    if (error) {
+      setErrorText(error.message);
+    } else {
+      setMessage("Check your inbox! We sent you a secure reset link.");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -96,6 +114,72 @@ export default function LoginPage() {
     setLoading(false);
   }
 
+  // --- RENDER FORGOT PASSWORD VIEW ---
+  if (mode === "forgot") {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">Reset your password</h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              Enter your email address and an email will be sent for you to reset your password.
+            </p>
+          </div>
+
+          <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <input
+                type="email"
+                autoComplete="email"
+                className="w-full rounded-xl border p-3 outline-none focus:ring-2 focus:ring-black/10"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+
+            {errorText && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {errorText}
+              </div>
+            )}
+
+            {message && (
+              <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                {message}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-black px-4 py-3 text-white font-medium disabled:opacity-60"
+            >
+              {loading ? "Please wait..." : "Send Reset Link"}
+            </button>
+          </form>
+
+          <div className="mt-5 text-center text-sm text-neutral-600">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setErrorText("");
+                setMessage("");
+              }}
+              className="font-medium text-black underline underline-offset-2"
+            >
+              Back to log in
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- RENDER STANDARD LOGIN / REGISTER VIEW ---
   return (
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
@@ -136,7 +220,22 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Password</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Password</label>
+              {mode === "login" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("forgot");
+                    setErrorText("");
+                    setMessage("");
+                  }}
+                  className="text-xs text-neutral-500 hover:text-black underline underline-offset-2"
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <input
               type="password"
               autoComplete={mode === "login" ? "current-password" : "new-password"}
