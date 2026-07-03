@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
@@ -22,10 +22,9 @@ export default function LoginPage() {
     async function checkSession() {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        router.push("/app");
+        router.push("/events");
       }
     }
-
     checkSession();
   }, [router]);
 
@@ -70,7 +69,7 @@ export default function LoginPage() {
       }
 
       if (data.session) {
-        router.push("/app");
+        router.push("/events");
       } else {
         setMessage(
           "Account created. Check your email to confirm your account, then log in."
@@ -93,7 +92,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/app");
+    router.push("/events");
     setLoading(false);
   }
 
