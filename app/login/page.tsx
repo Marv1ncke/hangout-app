@@ -38,6 +38,8 @@ export default function LoginPage() {
       redirectTo: `${window.location.origin}/auth/update-password`,
     });
 
+
+
     setLoading(false);
     if (error) {
       setErrorText(error.message);
@@ -289,3 +291,6 @@ export default function LoginPage() {
     </div>
   );
 }
+
+
+// Force deployment token sync trigger: 2026-07-03
