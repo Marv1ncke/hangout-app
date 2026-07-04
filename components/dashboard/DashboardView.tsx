@@ -107,8 +107,11 @@ export function DashboardView() {
   }
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Gebruik een microtask of setTimeout om de render-cycle te deblokkeren
+    const timer = setTimeout(() => {
+      load();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [groupId]);
 
   useEffect(() => {

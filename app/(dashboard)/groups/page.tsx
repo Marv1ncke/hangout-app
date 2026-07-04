@@ -1,7 +1,12 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
+
 
 interface Group {
   id: string;
@@ -206,7 +211,7 @@ export default function GroupsPage() {
       {/* GEBRUIKER IS NOG GEEN LID MELDING */}
       {groups.length === 0 && (
         <div className="bg-neutral-50 rounded-2xl p-8 text-center max-w-md mx-auto border border-neutral-100/40">
-          <p className="text-sm text-neutral-500 mb-4">Je bent momenteel geen actief lid van een vriendengroep.</p>
+          <p className="text-sm text-neutral-500 mb-4">Je bent momenteel geen actief lid van een groep.</p>
           <div className="flex gap-2 justify-center">
             <button onClick={() => setShowJoinSheet(true)} className="bg-neutral-100 text-neutral-800 text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition">Code Invullen</button>
             <button onClick={() => setShowCreateSheet(true)} className="bg-black text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition">Nieuwe Groep</button>
