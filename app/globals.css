@@ -48,169 +48,72 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 
   /* Native Apple Motion Animations */
-  --animate-sheet-in: sheetIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-fade-in: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-sheet-in: sheetIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 
   @keyframes sheetIn {
-    from { transform: translateY(100%); opacity: 0.9; }
-    to { transform: translateY(0); opacity: 1; }
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
   }
   @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.97); }
-    to { opacity: 1; transform: scale(1); }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --border: rgba(0, 0, 0, 0.06);
+  --radius: 0.75rem;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --border: rgba(255, 255, 255, 0.1);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
   }
-  html {
-    @apply font-sans;
-  }
 }
 
-@utility scrollbar-none {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
+/* 🛑 REVOLUTIE TEGEN OVERTOLLIGE CARDS & RANDEN */
+/* Als de pagina al om de content draait, slaan we dubbele kaders en schaduwen plat */
+.card, [class*="rounded-xl"], [class*="border-neutral-100"] {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border-color: var(--border) !important;
 }
 
-/* Pagina overgang wrapper */
-.page-transition-wrapper {
-  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Voorkom iOS auto-zoom op inputs zonder de visuele styling te breken */
+/* Voorkom iOS auto-zoom op inputs */
 @media screen and (max-width: 768px) {
-  input[type="text"],
-  input[type="number"],
-  input[type="date"],
-  input[type="time"],
-  select,
-  textarea {
-    font-size: 16px !important;
-  }
+  input, select, textarea { font-size: 16px !important; }
 }
 
-html {
-  background-color: #ffffff;
-  overscroll-behavior-y: none;
-}
-
-body {
+html, body {
   margin: 0;
-  padding: 0 !important; /* Reset de oude paddings */
+  padding: 0 !important;
   min-height: 100dvh;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-}
-
-@keyframes fade-in {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@keyframes fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-::view-transition-old(root) {
-  animation: 90ms cubic-bezier(0.4, 0, 1, 1) both fade-out;
-}
-
-::view-transition-new(root) {
-  animation: 210ms cubic-bezier(0, 0, 0.2, 1) both fade-in;
-}
-
-/* ==========================================================================
-   NATIVE iOS & ANDROID PWA LAYOUT CORRECTIONS
-   ========================================================================== */
-
-/* Native iOS Momentum Scroll herstellen (Vervanger voor Lenis op mobiel) */
-html, body {
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* Forceert die native, boterzachte Apple-scroll feel */
+  overflow-x: hidden;
+  /* Rustige, gecontroleerde scroll (minder losse scroll-achtigheid) */
+  scroll-behavior: smooth;
   overscroll-behavior-y: none;
 }
 
-/* 1. DE HEADER FIX: Vlekkeloos achter het Dynamic Island */
+/* ==========================================================================
+   NATIVE THEMED STATUS BARS (DYNAMIC ISLAND & BOTTOM BAR)
+   ========================================================================== */
+
+/* 1. DYNAMIC ISLAND BAR (Schakelt naadloos mee met wit/zwart theme) */
 .native-header {
   position: fixed;
   top: 0;
@@ -222,19 +125,19 @@ html, body {
   align-items: center;
   
   padding-top: env(safe-area-inset-top) !important;
-  height: calc(env(safe-area-inset-top) + 50px) !important;
+  height: calc(env(safe-area-inset-top) + 46px) !important;
   
-  background-color: rgba(255, 255, 255, 0.94) !important;
-  backdrop-filter: blur(20px) saturate(210%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(210%) !important;
-  border-b: 1px solid rgba(0, 0, 0, 0.06);
+  /* Volledig dekkend op basis van het actieve thema */
+  background-color: var(--background) !important;
+  border-b: 1px solid var(--border);
+  color: var(--foreground) !important;
 }
 
 main {
-  padding-top: calc(env(safe-area-inset-top) + 65px) !important;
+  padding-top: calc(env(safe-area-inset-top) + 56px) !important;
 }
 
-/* 2. DE NAVIGATIEBALK FIX: Perfecte hoogte, knoppen hoog genoeg, gecamoufleerde home-streep */
+/* 2. ONDERSTE NAVIGATIEBALK (Knoppen staan hoger, balk slikt de home-streep) */
 .native-bottom-bar {
   position: fixed;
   bottom: 0;
@@ -244,28 +147,41 @@ main {
   z-index: 40;
   
   display: flex;
-  align-items: flex-start; /* Knoppen uitlijnen vanaf de bovenkant van de balk */
+  align-items: flex-start;
   justify-content: space-around;
   
-  /* We geven de knoppen exact 60px ademruimte aan de bovenkant */
-  padding-top: 6px !important;
+  /* Zet de knoppen direct hoger op de perfecte duimhoogte */
+  padding-top: 10px !important;
   
-  /* De totale hoogte is nu de knoppenruimte (60px) + de exacte dikte van de iOS safe area */
-  height: calc(env(safe-area-inset-bottom) + 60px) !important;
-  /* Extra padding onderin om te zorgen dat er GEEN content onderdoor piept */
+  /* Totale hoogte herberekenen zodat de zwarte balk de home-indicator absorbeert */
+  height: calc(env(safe-area-inset-bottom) + 64px) !important;
   padding-bottom: env(safe-area-inset-bottom) !important;
   
-  /* Volledig dekkend wit (of verander naar #000000 als je een zwarte balk wilt) */
-  background-color: #ffffff00 !important;
-  border-t: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
+  background-color: var(--background) !important;
+  border-t: 1px solid var(--border);
 }
 
-/* Zorg dat de linkjes zelf niet tegen de bodem plakken */
+/* De knop-containers zelf */
 .native-nav-link {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 48px; /* Vaste compacte hoogte voor de klik-zone */
+  height: 44px;
+  color: var(--foreground);
+  opacity: 0.6;
+}
+
+.native-nav-link[class*="text-black"], .native-nav-link[data-active="true"] {
+  opacity: 1 !important;
+}
+
+/* 3. POP-UPS & DIALOGS (HOGER GEPLAATST OP HET SCHERM) */
+/* Push modals en sheets omhoog zodat ze niet tegen de onderkant plakken */
+[role="dialog"], [class*="fixed bottom-0"] {
+  bottom: 12% !important; /* Tilt pop-ups/sheets direct een flink stuk omhoog */
+  border-radius: var(--radius) !important;
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
 }
