@@ -242,7 +242,7 @@ export default function ExpensesPage() {
             </button>
           )}
           <button 
-            onClick={() => { triggerHaptic("light"); setShowAddSheet(true); }}
+            onClick={() => { triggerHaptic(15); setShowAddSheet(true); }}
             className="px-3.5 py-2 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition flex items-center gap-1"
           >
             <Plus size={14} /> Uitgave Toevoegen
