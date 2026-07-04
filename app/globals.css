@@ -155,7 +155,6 @@
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-
 /* Voorkom iOS auto-zoom op inputs zonder de visuele styling te breken */
 @media screen and (max-width: 768px) {
   input[type="text"],
@@ -164,18 +163,22 @@
   input[type="time"],
   select,
   textarea {
-    font-size: 16px !important; /* Forceert iOS om NIET in te zoomen */
+    font-size: 16px !important;
   }
 }
 
-body {
-  overscroll-behavior: none;
+html {
+  background-color: #ffffff;
+  overscroll-behavior-y: none;
 }
 
-html, body {
+body {
+  margin: 0;
+  padding: 0 !important; /* Reset de oude paddings */
+  min-height: 100dvh;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  user-select: none; /* Voorkomt dat tekst per ongeluk geselecteerd wordt bij tikken */
+  user-select: none;
 }
 
 @keyframes fade-in {
@@ -196,35 +199,49 @@ html, body {
   animation: 210ms cubic-bezier(0, 0, 0.2, 1) both fade-in;
 }
 
-
-/* Zorg dat de hele app edge-to-edge loopt */
-html, body {
-  padding: 0;
-  margin: 0;
-  height: 100%;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-/* De ultieme Apple-style Dynamic Island Glassmorphic Header */
+/* 1. DE HEADER FIX: Geen doorzichtige content rond Dynamic Island */
 .native-header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 50;
-  /* Extra padding bovenop de notch */
-  padding-top: env(safe-area-inset-top);
-  background-color: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px) saturate(190%);
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  border-b: 1px solid rgba(0, 0, 0, 0.05);
+  
+  /* Start 100% bovenaan de notch */
+  padding-top: env(safe-area-inset-top) !important;
+  height: calc(env(safe-area-inset-top) + 56px) !important;
+  
+  /* Volledig dekkend glassmorphism */
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(20px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+  border-b: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* De onderste navigatiebalk onzichtbaar beschermen tegen de iPhone Home Streep */
+/* Zorg dat pagina content pas EXACT onder de header begint */
+main {
+  padding-top: calc(env(safe-area-inset-top) + 60px) !important;
+}
+
+/* 2. DE NAVIGATIEBALK FIX: Verberg de zwarte home-streep, knopjes subtiel omhoog */
 .native-bottom-bar {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 8px) !important;
-  background-color: rgba(255, 255, 255, 0.85);
+  position: fixed;
+  bottom: 0;
+  inset-x: 0;
+  z-index: 40;
+  
+  /* Eet de home-streep op door safe area te gebruiken */
+  padding-bottom: env(safe-area-inset-bottom) !important;
+  height: calc(env(safe-area-inset-bottom) + 54px) !important;
+  
+  /* Dekkend wit zodat de zwarte streep onzichtbaar mengt */
+  background-color: rgba(255, 255, 255, 0.96) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  border-t: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Schuif de icoontjes een heel klein beetje omhoog */
+.native-nav-link {
+  transform: translateY(-3px) !important;
 }
