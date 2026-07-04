@@ -1,402 +1,336 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { useGroup } from "@/components/state/useGroup";
 
-type Group = {
+interface Group {
   id: string;
   name: string;
-  invite_code: string | null;
-  created_at?: string;
-};
+  join_code: string;
+  is_protected: boolean;
+}
 
-type MemberCountRow = {
+interface PendingRequest {
+  id: string;
   group_id: string;
-};
+  profile_id: string;
+  group_name: string;
+  user_name: string;
+  avatar_url: string;
+}
 
 export default function GroupsPage() {
-  const { groupId, setGroup, clearGroup } = useGroup();
-
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState("");
   const [groups, setGroups] = useState<Group[]>([]);
-  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
-  const [newGroupName, setNewGroupName] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  
+  // Forms & UI Modals
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [showJoinSheet, setShowJoinSheet] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [isProtected, setIsProtected] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState("");
 
-  async function ensureProfile(userId: string) {
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", userId)
-      .maybeSingle();
+  // Native iOS Push Notificatie Toast State
+  const [toast, setToast] = useState<{ message: string; sub?: string } | null>(null);
 
-    if (!existing) {
-      await supabase.from("profiles").insert({
-        id: userId,
-      });
+  const showNotification = (message: string, sub?: string) => {
+    setToast({ message, sub });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  useEffect(() => {
+    async function loadGroupsData() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+      setUserId(userData.user.id);
+
+      // 1. Haal groepen op waar de gebruiker actief lid van is
+      const { data: myMemberships } = await supabase
+        .from("group_members")
+        .select("group_id, status")
+        .eq("profile_id", userData.user.id)
+        .eq("status", "active");
+
+      if (myMemberships && myMemberships.length > 0) {
+        const groupIds = myMemberships.map(m => m.group_id);
+        const { data: groupsData } = await supabase
+          .from("groups")
+          .select("id, name, join_code, is_protected")
+          .in("id", groupIds);
+        
+        if (groupsData) setGroups(groupsData);
+
+        // 2. Als beheerder/lid van deze groepen, haal openstaande toelatingsverzoeken (pending) op
+        const { data: incoming } = await supabase
+          .from("group_members")
+          .select(`
+            id,
+            group_id,
+            profile_id,
+            groups:group_id ( name ),
+            profiles:profile_id ( full_name, avatar_url )
+          `)
+          .in("group_id", groupIds)
+          .eq("status", "pending");
+
+        if (incoming) {
+          const formattedRequests = (incoming as any[]).map(req => ({
+            id: req.id,
+            group_id: req.group_id,
+            profile_id: req.profile_id,
+            group_name: req.groups?.name || "Groep",
+            user_name: req.profiles?.full_name || "Iemand",
+            avatar_url: req.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${req.profile_id}`
+          }));
+          setPendingRequests(formattedRequests);
+        }
+      }
+      setLoading(false);
     }
-  }
+    loadGroupsData();
+  }, []);
 
-  async function loadGroups() {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
-    if (!user) return;
+  async function handleCreateGroup(e: React.FormEvent) {
+    e.preventDefault();
+    if (!groupName.trim()) return;
 
-    await ensureProfile(user.id);
+    const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    const { data: memberships } = await supabase
-      .from("group_members")
-      .select("group_id")
-      .eq("user_id", user.id);
+    // Maak de groep aan met het gekozen beveiligingstype
+    const { data: newGroup, error: groupError } = await supabase
+      .from("groups")
+      .insert({ name: groupName.trim(), join_code: generatedCode, is_protected: isProtected })
+      .select()
+      .single();
 
-    const ids = (memberships || []).map((m) => m.group_id);
-
-    if (!ids.length) {
-      setGroups([]);
-      setMemberCounts({});
-      if (groupId) clearGroup();
+    if (groupError) {
+      showNotification("Fout bij aanmaken", groupError.message);
       return;
     }
 
-    const { data: groupRows } = await supabase
-      .from("groups")
-      .select("id, name, invite_code, created_at")
-      .in("id", ids)
-      .order("created_at", { ascending: false });
-
-    setGroups(groupRows || []);
-
-    const { data: allMembers } = await supabase
-      .from("group_members")
-      .select("group_id")
-      .in("group_id", ids);
-
-    const counts: Record<string, number> = {};
-    (allMembers || []).forEach((row: MemberCountRow) => {
-      counts[row.group_id] = (counts[row.group_id] || 0) + 1;
+    // De maker is direct een 'active' lid
+    await supabase.from("group_members").insert({
+      group_id: newGroup.id,
+      profile_id: userId,
+      status: "active"
     });
-    setMemberCounts(counts);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("selected_group_id")
-      .eq("id", user.id)
+    showNotification("Groep aangemaakt! 🎉", `Code: ${generatedCode}`);
+    setShowCreateSheet(false);
+    setTimeout(() => window.location.reload(), 1500);
+  }
+
+  async function handleJoinCodeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!joinCodeInput.trim()) return;
+
+    const { data: targetGroup, error: findError } = await supabase
+      .from("groups")
+      .select("id, name, is_protected")
+      .eq("join_code", joinCodeInput.trim().toUpperCase())
       .maybeSingle();
 
-    if (profile?.selected_group_id) {
-      const selected = (groupRows || []).find(
-        (g) => g.id === profile.selected_group_id
-      );
-      if (selected) {
-        setGroup(selected.id, selected.name);
-      }
-    } else if (groupRows?.length && !groupId) {
-      const first = groupRows[0];
+    if (findError || !targetGroup) {
+      showNotification("Code niet gevonden", "Controleer de code en probeer opnieuw.");
+      return;
+    }
+
+    // Bepaal de status op basis van het groepstype
+    const memberStatus = targetGroup.is_protected ? "pending" : "active";
+
+    const { error: joinError } = await supabase.from("group_members").insert({
+      group_id: targetGroup.id,
+      profile_id: userId,
+      status: memberStatus
+    });
+
+    if (joinError) {
+      showNotification("Aanmeldingsfout", "Je bent mogelijk al lid of hebt een verzoek openstaan.");
+    } else if (targetGroup.is_protected) {
+      showNotification("Verzoek verzonden! 🔒", `Wacht tot de leden van ${targetGroup.name} je toelaten.`);
+    } else {
+      showNotification("Succesvol toegevoegd! 🎉", `Je zit nu in ${targetGroup.name}`);
+    }
+
+    setShowJoinSheet(false);
+    if (!targetGroup.is_protected) {
+      setTimeout(() => window.location.reload(), 1500);
+    }
+  }
+
+  async function handleResolveRequest(requestId: string, approve: boolean) {
+    if (approve) {
       await supabase
-        .from("profiles")
-        .update({ selected_group_id: first.id, updated_at: new Date().toISOString() })
-        .eq("id", user.id);
-
-      setGroup(first.id, first.name);
+        .from("group_members")
+        .update({ status: "active" })
+        .eq("id", requestId);
+      showNotification("Lid toegelaten");
+    } else {
+      await supabase
+        .from("group_members")
+        .delete()
+        .eq("id", requestId);
+      showNotification("Verzoek geweigerd");
     }
+    setPendingRequests(prev => prev.filter(r => r.id !== requestId));
   }
 
-  useEffect(() => {
-    loadGroups();
-  }, []);
-
-  async function createGroup() {
-    const name = newGroupName.trim();
-    if (!name) return alert("Enter a group name.");
-
-    setLoading(true);
-
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
-    if (!user) {
-      setLoading(false);
-      return alert("You must be logged in.");
-    }
-
-    await ensureProfile(user.id);
-
-    const inviteCode = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
-
-    const { data: createdGroup, error: groupError } = await supabase
-      .from("groups")
-      .insert({
-        name,
-        created_by: user.id,
-        invite_code: inviteCode,
-      })
-      .select("id, name, invite_code")
-      .single();
-
-    if (groupError || !createdGroup) {
-      setLoading(false);
-      return alert(groupError?.message || "Could not create group.");
-    }
-
-    const { error: memberError } = await supabase.from("group_members").insert({
-      group_id: createdGroup.id,
-      user_id: user.id,
-    });
-
-    if (memberError) {
-      setLoading(false);
-      return alert(memberError.message);
-    }
-
-    await supabase
-      .from("profiles")
-      .update({
-        selected_group_id: createdGroup.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-
-    setGroup(createdGroup.id, createdGroup.name);
-    setNewGroupName("");
-    await loadGroups();
-    setLoading(false);
-  }
-
-  async function joinGroup() {
-    const code = joinCode.trim();
-    if (!code) return alert("Enter an invite code.");
-
-    setLoading(true);
-
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
-    if (!user) {
-      setLoading(false);
-      return alert("You must be logged in.");
-    }
-
-    await ensureProfile(user.id);
-
-    const { data: foundGroup, error: findError } = await supabase
-      .from("groups")
-      .select("id, name, invite_code")
-      .eq("invite_code", code)
-      .single();
-
-    if (findError || !foundGroup) {
-      setLoading(false);
-      return alert("Invalid invite code.");
-    }
-
-    const { error: memberError } = await supabase.from("group_members").upsert(
-      {
-        group_id: foundGroup.id,
-        user_id: user.id,
-      },
-      { onConflict: "group_id,user_id" }
-    );
-
-    if (memberError) {
-      setLoading(false);
-      return alert(memberError.message);
-    }
-
-    await supabase
-      .from("profiles")
-      .update({
-        selected_group_id: foundGroup.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-
-    setGroup(foundGroup.id, foundGroup.name);
-    setJoinCode("");
-    await loadGroups();
-    setLoading(false);
-  }
-
-  async function openGroup(group: Group) {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
-    if (!user) return;
-
-    await supabase
-      .from("profiles")
-      .update({
-        selected_group_id: group.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-
-    setGroup(group.id, group.name);
-  }
-
-  async function leaveGroup(group: Group) {
-    const memberCount = memberCounts[group.id] || 0;
-    const confirmText =
-      memberCount <= 1
-        ? `Leave "${group.name}"? You are the last member, so the group will be deleted.`
-        : `Leave "${group.name}"?`;
-
-    const ok = confirm(confirmText);
-    if (!ok) return;
-
-    const { error } = await supabase.rpc("leave_group_and_cleanup", {
-      p_group_id: group.id,
-    });
-
-    if (error) return alert(error.message);
-
-    if (groupId === group.id) {
-      clearGroup();
-    }
-
-    await loadGroups();
-  }
-
-  async function copyInvite(code: string | null) {
-    if (!code) return;
-    await navigator.clipboard.writeText(code);
-    alert("Invite code copied");
-  }
-
-  const selectedGroup = useMemo(
-    () => groups.find((g) => g.id === groupId) ?? null,
-    [groups, groupId]
-  );
+  if (loading) return <div className="p-6 text-sm text-neutral-400 font-medium">Groepen laden...</div>;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Groups</h1>
-        <p className="text-sm text-neutral-500">
-          Create a friend group, join with an invite code, and manage membership.
-        </p>
-      </div>
-
-      {selectedGroup && (
-        <div className="rounded-2xl border bg-white p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <div className="text-sm text-neutral-500">Current group</div>
-            <div className="font-semibold text-lg">{selectedGroup.name}</div>
-          </div>
-          <div className="text-sm text-neutral-500">
-            Members: {memberCounts[selectedGroup.id] || 1}
+    <div className="space-y-8 relative">
+      
+      {/* NATIVE PUSH TOAST BANNER (Vliegt binnen als een echte iOS notificatie) */}
+      {toast && (
+        <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none animate-fade-in">
+          <div className="bg-black/95 text-white w-full max-w-sm rounded-2xl p-4 shadow-2xl backdrop-blur-md border border-white/10 flex items-start space-x-3 pointer-events-auto">
+            <div className="bg-white/20 h-7 w-7 rounded-lg flex items-center justify-center text-xs">💬</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold tracking-tight">{toast.message}</p>
+              {toast.sub && <p className="text-[11px] text-neutral-400 mt-0.5 truncate">{toast.sub}</p>}
+            </div>
           </div>
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border bg-white p-5 space-y-4">
-          <div>
-            <h2 className="font-semibold">Create group</h2>
-            <p className="text-sm text-neutral-500">
-              Start a shared planning space for your friends.
-            </p>
-          </div>
-
-          <input
-            className="w-full rounded-xl border p-3"
-            placeholder="Friday Crew"
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-          />
-
-          <button
-            onClick={createGroup}
-            disabled={loading}
-            className="rounded-xl bg-black text-white px-4 py-2"
-          >
-            {loading ? "Working..." : "Create group"}
-          </button>
-        </div>
-
-        <div className="rounded-2xl border bg-white p-5 space-y-4">
-          <div>
-            <h2 className="font-semibold">Join with invite code</h2>
-            <p className="text-sm text-neutral-500">
-              Ask a friend for the group code and join instantly.
-            </p>
-          </div>
-
-          <input
-            className="w-full rounded-xl border p-3"
-            placeholder="e.g. 1f9ab32cde"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
-          />
-
-          <button
-            onClick={joinGroup}
-            disabled={loading}
-            className="rounded-xl border px-4 py-2"
-          >
-            {loading ? "Working..." : "Join group"}
-          </button>
+      {/* TITEL & ACTIONS */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-neutral-900">Groepen</h1>
+          <p className="text-sm text-neutral-400 font-medium mt-0.5">Beheer je vriendengroepen en toelatingen.</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-white p-5">
-        <div className="mb-4">
-          <h2 className="font-semibold">Your groups</h2>
-          <p className="text-sm text-neutral-500">
-            Switch groups, share invite codes, or leave a group.
-          </p>
+      {/* GEBRUIKER IS NOG GEEN LID MELDING */}
+      {groups.length === 0 && (
+        <div className="bg-neutral-50 rounded-2xl p-8 text-center max-w-md mx-auto border border-neutral-100/40">
+          <p className="text-sm text-neutral-500 mb-4">Je bent momenteel geen actief lid van een vriendengroep.</p>
+          <div className="flex gap-2 justify-center">
+            <button onClick={() => setShowJoinSheet(true)} className="bg-neutral-100 text-neutral-800 text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition">Code Invullen</button>
+            <button onClick={() => setShowCreateSheet(true)} className="bg-black text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition">Nieuwe Groep</button>
+          </div>
         </div>
+      )}
 
-        <div className="space-y-3">
-          {groups.length === 0 ? (
-            <div className="text-sm text-neutral-500">No groups yet.</div>
-          ) : (
-            groups.map((group) => {
-              const active = group.id === groupId;
-              const members = memberCounts[group.id] || 1;
-
-              return (
-                <div
-                  key={group.id}
-                  className="rounded-2xl border p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
-                >
-                  <div>
-                    <div className="font-medium">{group.name}</div>
-                    <div className="text-sm text-neutral-500">
-                      Invite code: {group.invite_code || "—"}
+      {groups.length > 0 && (
+        <div className="space-y-6">
+          
+          {/* TOELATINGSVERZOEKEN NOTIFICATIE LIJST (Alleen zichtbaar als er aanvragen zijn) */}
+          {pendingRequests.length > 0 && (
+            <div className="bg-amber-50/60 border border-amber-200/40 rounded-2xl p-4 space-y-3 animate-fade-in">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-amber-600 text-xs font-extrabold uppercase tracking-wider">🔒 Toelatingsverzoeken ({pendingRequests.length})</span>
+              </div>
+              <div className="space-y-2">
+                {pendingRequests.map(req => (
+                  <div key={req.id} className="bg-white p-3 rounded-xl flex items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <img src={req.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                      <p className="text-xs font-semibold text-neutral-800 truncate">
+                        <strong>{req.user_name}</strong> wil naar <em>{req.group_name}</em>
+                      </p>
                     </div>
-                    <div className="text-sm text-neutral-500">
-                      Members: {members}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => handleResolveRequest(req.id, false)} className="text-[11px] font-bold text-neutral-400 hover:text-red-500 px-2 py-1">Weiger</button>
+                      <button onClick={() => handleResolveRequest(req.id, true)} className="bg-black text-white text-[11px] font-bold px-2.5 py-1 rounded-lg">Laat toe</button>
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => openGroup(group)}
-                      className={`rounded-xl px-3 py-2 text-sm border ${
-                        active ? "bg-black text-white border-black" : ""
-                      }`}
-                    >
-                      {active ? "Opened" : "Open"}
-                    </button>
-
-                    <button
-                      onClick={() => copyInvite(group.invite_code)}
-                      className="rounded-xl border px-3 py-2 text-sm"
-                    >
-                      Copy invite
-                    </button>
-
-                    <button
-                      onClick={() => leaveGroup(group)}
-                      className="rounded-xl border border-red-200 text-red-600 px-3 py-2 text-sm"
-                    >
-                      {members <= 1 ? "Delete group" : "Leave group"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })
+                ))}
+              </div>
+            </div>
           )}
+
+          {/* GROEPEN OVERZICHT MATRIX */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {groups.map(g => (
+              <div key={g.id} className="bg-white border border-neutral-100/70 p-5 rounded-2xl shadow-xs flex flex-col justify-between items-start gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-neutral-900 text-lg">{g.name}</h3>
+                    <span className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-md ${
+                      g.is_protected ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-500"
+                    }`}>
+                      {g.is_protected ? "🔒 Beveiligd" : "🔓 Open"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400 font-medium">Deel deze code met je vrienden:</p>
+                </div>
+
+                <div className="w-full flex items-center justify-between bg-neutral-50 p-2 rounded-xl">
+                  <code className="text-xs font-bold text-neutral-700 tracking-wider pl-1">{g.join_code}</code>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(g.join_code);
+                      showNotification("Code Gekopieerd! 📋", `Deel ${g.join_code} met je vrienden.`);
+                    }}
+                    className="text-[11px] font-bold text-neutral-500 hover:text-black px-2 py-1 bg-white rounded-lg shadow-2xs"
+                  >
+                    Kopieer
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* EXTRA ACTIONS ONDERAAN */}
+          <div className="flex gap-2 pt-2">
+            <button onClick={() => setShowJoinSheet(true)} className="px-4 py-3 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-xl active:scale-95 transition">Vul een Groepscode in</button>
+            <button onClick={() => setShowCreateSheet(true)} className="px-4 py-3 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition">+ Nieuwe Groep Starten</button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ================= NATIVE APPLE MODAL SHEETS ================= */}
+
+      {/* SHEET A: NIEUWE GROEP MAKEN */}
+      {showCreateSheet && (
+        <div className="fixed inset-0 z-50 bg-black/20 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl animate-sheet-in">
+            <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
+              <h2 className="text-sm font-bold">Groep Aanmaken</h2>
+              <button onClick={() => setShowCreateSheet(false)} className="text-xs font-bold text-neutral-400">Annuleer</button>
+            </div>
+            <form onSubmit={handleCreateGroup} className="space-y-4">
+              <input type="text" placeholder="Groepsnaam (bijv. Vriendengroep 2026)" value={groupName} onChange={(e) => setGroupName(e.target.value)} required className="w-full bg-neutral-50 p-3.5 rounded-xl text-xs outline-none" />
+              
+              {/* APPLE SEGMENTED SWITCH VOOR TYPE GROEP */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">Groepstype</label>
+                <div className="bg-neutral-100 p-1 rounded-xl flex">
+                  <button type="button" onClick={() => setIsProtected(false)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${!isProtected ? "bg-white text-black shadow-xs" : "text-neutral-500"}`}>🔓 Open</button>
+                  <button type="button" onClick={() => setIsProtected(true)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${isProtected ? "bg-white text-black shadow-xs" : "text-neutral-500"}`}>🔒 Beveiligd</button>
+                </div>
+                <p className="text-[10px] text-neutral-400 px-1 mt-1 leading-normal">
+                  {isProtected 
+                    ? "Nieuwe leden sturen een verzoek. Huidige leden moeten hen eerst goedkeuren." 
+                    : "Iedereen met de unieke groepscode krijgt direct volledige toegang tot de agenda."}
+                </p>
+              </div>
+
+              <button type="submit" className="w-full bg-black text-white p-3.5 rounded-xl text-xs font-semibold shadow-sm">Maak Groep</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SHEET B: JOINEN VIA CODE */}
+      {showJoinSheet && (
+        <div className="fixed inset-0 z-50 bg-black/20 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl animate-sheet-in">
+            <div className="flex items-center justify-between border-b border-neutral-50 pb-3">
+              <h2 className="text-sm font-bold">Deelnemen via Code</h2>
+              <button onClick={() => setShowJoinSheet(false)} className="text-xs font-bold text-neutral-400">Annuleer</button>
+            </div>
+            <form onSubmit={handleJoinCodeSubmit} className="space-y-4">
+              <input type="text" placeholder="Voer de 6-cijferige code in" value={joinCodeInput} onChange={(e) => setJoinCodeInput(e.target.value)} required className="w-full bg-neutral-50 p-3.5 rounded-xl text-xs font-bold tracking-widest text-center uppercase outline-none" maxLength={6} />
+              <button type="submit" className="w-full bg-black text-white p-3.5 rounded-xl text-xs font-semibold shadow-sm">Verstuur Code</button>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

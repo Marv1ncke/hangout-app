@@ -128,3 +128,31 @@
     @apply font-sans;
   }
 }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Native Apple Motion Framework */
+@layer utilities {
+  .animate-sheet-in {
+    animation: sheetIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+@keyframes sheetIn {
+  from { transform: translateY(100%); opacity: 0.9; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Verberg scrollbars maar behoud scroll functionaliteit */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
