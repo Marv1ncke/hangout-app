@@ -93,8 +93,16 @@ export default function EventsAndCalendarPage() {
       }
 
       // Laad busy periods
-      const { data: busyData } = await supabase.from("availability").select("*");
-      if (busyData) setBusyPeriods(busyData);
+      const { data: busyData } = await supabase.from("availability_slots").select("*");
+if (busyData) {
+  setBusyPeriods(busyData.map((b: any) => ({
+    id: b.id,
+    profile_id: b.user_id, // Map user_id naar profile_id voor de UI component
+    start_time: b.starts_at,
+    end_time: b.ends_at,
+    title: b.note || "Bezet"
+  })));
+}
 
       // Laad geplande events
       const { data: eventsData } = await supabase.from("events").select("*");
@@ -146,11 +154,12 @@ export default function EventsAndCalendarPage() {
     e.preventDefault();
     if (!busyStart || !busyEnd) return;
 
-    const { error } = await supabase.from("availability").insert({
-      profile_id: currentUserId,
-      title: busyTitle || "Bezet",
-      start_time: new Date(busyStart).toISOString(),
-      end_time: new Date(busyEnd).toISOString()
+    const { error } = await supabase.from("availability_slots").insert({
+      user_id: currentUserId,
+      note: busyTitle || "Bezet",
+      starts_at: new Date(busyStart).toISOString(),
+      ends_at: new Date(busyEnd).toISOString(),
+      status: "busy"
     });
 
     if (error) {

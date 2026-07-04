@@ -129,8 +129,8 @@
   }
 }
 
-@tailwind base;
-@tailwind components;
+@import "tailwindcss/preflight";
+@tailwind utilities;
 @tailwind utilities;
 
 /* Custom Native Apple Motion Framework (Tailwind v4 Native Config) */
