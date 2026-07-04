@@ -183,27 +183,31 @@ export default function GroupsPage() {
     setLoading(true);
     await loadGroupsData();
   }
-
+  
   async function openMembersList(group: Group) {
     setSelectedGroup(group);
     setShowMembersSheet(true);
 
-    const { data: membersData } = await supabase
+    // FIX: Meer robuuste query. Als "profiles" faalt, fallback naar user_id.
+    const { data: membersData, error } = await supabase
       .from("group_members")
       .select(`
         user_id,
-        profiles:user_id ( full_name, avatar_url )
+        status,
+        profiles ( full_name, avatar_url )
       `)
       .eq("group_id", group.id)
       .eq("status", "active");
 
     if (membersData) {
-      const formatted = (membersData as any[]).map(m => ({
+      const formatted = membersData.map((m: any) => ({
         user_id: m.user_id,
-        full_name: m.profiles?.full_name || "Onbekende Vriend",
+        full_name: m.profiles?.full_name || "Lid " + m.user_id.substring(0,4),
         avatar_url: m.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${m.user_id}`
       }));
       setSelectedGroupMembers(formatted);
+    } else {
+      console.error("Fout bij laden leden:", error);
     }
   }
 
@@ -378,28 +382,43 @@ export default function GroupsPage() {
           </div>
         </div>
       )}
-
-      {/* SHEET C: LEDENLIJST */}
-      {showMembersSheet && (
-        <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3 shrink-0">
-              <div>
-                <h2 className="text-sm font-black text-neutral-900">{selectedGroup?.name}</h2>
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-0.5">Actieve Vrienden: {selectedGroupMembers.length}</p>
-              </div>
-              <button onClick={() => { setShowMembersSheet(false); setSelectedGroupMembers([]); }} className="text-xs font-bold text-neutral-400 cursor-pointer">Sluit</button>
+      
+{/* SHEET C: FULL SCREEN IOS-STYLE LEDENLIJST */}
+{showMembersSheet && (
+        <div className="fixed inset-0 z-[9999] bg-white flex flex-col animate-in slide-in-from-bottom-full duration-300">
+          {/* Native Header */}
+          <div className="pt-12 pb-4 px-6 border-b border-neutral-100 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-xl sticky top-0">
+            <div>
+              <h2 className="text-2xl font-black text-neutral-900 tracking-tight">{selectedGroup?.name}</h2>
+              <p className="text-sm font-bold text-neutral-400 mt-1">{selectedGroupMembers.length} Actieve Leden</p>
             </div>
-            <div className="overflow-y-auto space-y-3 py-2 flex-1 scrollbar-none">
-              {selectedGroupMembers.map(m => (
-                <div key={m.user_id} className="flex items-center space-x-3 p-1 rounded-xl">
-                  <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-neutral-200/60">
+            <button 
+              onClick={() => { setShowMembersSheet(false); setSelectedGroupMembers([]); }} 
+              className="bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-5 py-2.5 rounded-full text-sm font-bold transition active:scale-95"
+            >
+              Sluiten
+            </button>
+          </div>
+          
+          {/* Ledenlijst */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+            {selectedGroupMembers.length === 0 ? (
+              <div className="p-8 text-center text-neutral-400 font-medium">Leden aan het laden...</div>
+            ) : (
+              selectedGroupMembers.map(m => (
+                <div key={m.user_id} className="flex items-center space-x-4 p-3 bg-neutral-50/50 rounded-2xl">
+                  <div className="relative w-14 h-14 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm">
                     <Image src={m.avatar_url} alt="Avatar" fill className="object-cover" unoptimized />
                   </div>
-                  <p className="text-xs font-bold text-neutral-800">{m.full_name} {m.user_id === userId && <span className="text-[10px] font-medium text-neutral-400 bg-neutral-100 px-1 py-0.5 rounded">(Jij)</span>}</p>
+                  <div className="flex-1">
+                    <p className="text-lg font-bold text-neutral-900">
+                      {m.full_name} 
+                      {m.user_id === userId && <span className="ml-2 text-[11px] font-extrabold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider">Jij</span>}
+                    </p>
+                  </div>
                 </div>
-              ))}
-            </div>
+              ))
+            )}
           </div>
         </div>
       )}
