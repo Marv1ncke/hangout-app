@@ -154,3 +154,16 @@
 .page-transition-wrapper {
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+
+/* Voorkom iOS auto-zoom op inputs zonder de visuele styling te breken */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    font-size: 16px !important; /* Forceert iOS om NIET in te zoomen */
+  }
+}

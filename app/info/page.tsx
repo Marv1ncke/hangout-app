@@ -53,10 +53,7 @@ export default function InfoPage() {
         ))}
       </div>
 
-      {/* FOOTER BANNER */}
-      <div className="bg-neutral-900 text-white rounded-2xl p-5 text-center space-y-1 shadow-xs">
-        <p className="text-xs font-black tracking-tight">Hangout Planner v2.0</p>
-      </div>
+
 
     </div>
   );

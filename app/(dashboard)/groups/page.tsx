@@ -133,6 +133,7 @@ export default function GroupsPage() {
 
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+    // 1. Maak de groep aan
     const { data: newGroup, error: groupError } = await supabase
       .from("groups")
       .insert({ 
@@ -150,12 +151,14 @@ export default function GroupsPage() {
       return;
     }
 
+    // 2. BUGFIX: Voeg de maker DIRECT toe met status 'active' in group_members zodat de ledentelling klopt
     await supabase.from("group_members").insert({
       group_id: newGroup.id,
       user_id: userId,
       status: "active"
     });
 
+    // 3. Zet deze groep direct als actieve geselecteerde groep in het profiel
     await supabase.from("profiles").update({ selected_group_id: newGroup.id }).eq("id", userId);
 
     showNotification("Groep aangemaakt! 🤝", `Code: ${generatedCode}`);

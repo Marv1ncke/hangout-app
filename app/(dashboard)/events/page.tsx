@@ -3,289 +3,388 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import { Calendar, MapPin, Shirt, ShoppingBag, Plus, Check, Heart } from "lucide-react";
+import { Plus, ShoppingBag, Heart, ArrowRight, Navigation, X, MapPin } from "lucide-react";
+
+type ViewType = "day" | "week" | "month" | "6month";
 
 export default function EventsPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>("");
   const [events, setEvents] = useState<any[]>([]);
+  const [groupProfiles, setGroupProfiles] = useState<{ [key: string]: any }>({});
   
-  // Sheet State
+  const [currentView, setCurrentView] = useState<ViewType>("month");
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   
-  // Form input states
+  // Form States (Creatie)
+  const [eventType, setEventType] = useState<"hangout" | "trip">("hangout");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [location, setLocation] = useState("");
+  const [hasEndTime, setHasEndTime] = useState(false);
+  const [endTime, setEndTime] = useState(""); // Bevat nu volledige ISO datetime-local string (datum + tijd)
+  const [locationAddress, setLocationAddress] = useState(""); // Verplicht Adres Veld
+  const [endDate, setEndDate] = useState("");
+  const [startLocation, setStartLocation] = useState("");
+  const [endLocation, setEndLocation] = useState("");
   const [dresscode, setDresscode] = useState("");
-  const [bringInput, setBringInput] = useState("");
-  const [bringList, setBringList] = useState<string[]>([]);
+  const [stopInput, setStopInput] = useState("");
+  const [stops, setStops] = useState<string[]>([]);
+  
+  // Foutmelding State
+  const [formError, setFormError] = useState<string | null>(null);
+  
+  // Dynamische Meeneemlijst in het Aanmaak-Formulier
+  const [modalBringInput, setModalBringInput] = useState("");
+  const [modalBringList, setModalBringList] = useState<string[]>([]);
 
-  // Extra item toevoegen aan bestaand event
+  // State voor het live toevoegen van items per event op de pagina zelf
   const [newEventItem, setNewEventItem] = useState<{ [eventId: string]: string }>({});
 
-  async function loadEvents() {
+  async function loadEventsAndMembers() {
+    setLoading(true);
     const { data: userData } = await supabase.auth.getUser();
     if (!userData?.user) return;
-    setUserId(userData.user.id);
+    const currentUserId = userData.user.id;
+    setUserId(currentUserId);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("selected_group_id")
-      .eq("id", userData.user.id)
-      .maybeSingle();
+    const { data: profile } = await supabase.from("profiles").select("id, full_name, avatar_url, selected_group_id").eq("id", currentUserId).maybeSingle();
+    
+    // Zorg ervoor dat de data van de ingelogde persoon ALTIJD beschikbaar is in de profielenmap
+    const profilesMap: { [key: string]: any } = {};
+    if (profile) {
+      profilesMap[profile.id] = {
+        id: profile.id,
+        full_name: profile.full_name,
+        avatar_url: profile.avatar_url
+      };
+    }
 
     if (!profile?.selected_group_id) {
+      setGroupProfiles(profilesMap);
       setLoading(false);
       return;
     }
-    setActiveGroupId(profile.selected_group_id);
+    const groupId = profile.selected_group_id;
+    setActiveGroupId(groupId);
 
+    // Haal alle actieve groepsleden op
+    const { data: members } = await supabase
+      .from("group_members")
+      .select("user_id, profiles(id, full_name, avatar_url)")
+      .eq("group_id", groupId)
+      .eq("status", "active");
+
+    members?.forEach((m: any) => {
+      if (m.profiles) {
+        profilesMap[m.profiles.id] = m.profiles;
+      }
+    });
+    setGroupProfiles(profilesMap);
+
+    // Haal alle events op
     const { data: eventsData } = await supabase
       .from("events")
       .select("*")
-      .eq("group_id", profile.selected_group_id)
-      .order("date", { ascending: true });
+      .eq("group_id", groupId);
 
     setEvents(eventsData || []);
     setLoading(false);
   }
 
   useEffect(() => {
-    loadEvents();
-    window.addEventListener("groupChanged", loadEvents);
-    return () => window.removeEventListener("groupChanged", loadEvents);
+    loadEventsAndMembers();
+    window.addEventListener("groupChanged", loadEventsAndMembers);
+    return () => window.removeEventListener("groupChanged", loadEventsAndMembers);
   }, []);
 
-  const addBringItemToForm = () => {
-    if (!bringInput.trim()) return;
-    setBringList([...bringList, bringInput.trim()]);
-    setBringInput("");
+  const getFilteredEvents = () => {
+    const now = new Date();
+    const sorted = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return sorted.filter(event => {
+      const eventDate = new Date(event.date);
+      
+      if (currentView === "day") {
+        return eventDate.toDateString() === now.toDateString();
+      }
+      
+      if (currentView === "week") {
+        const currentDay = now.getDay();
+        const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - distanceToMonday);
+        monday.setHours(0,0,0,0);
+
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23,59,59,999);
+
+        return eventDate >= monday && eventDate <= sunday;
+      }
+
+      if (currentView === "month") {
+        return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
+      }
+
+      if (currentView === "6month") {
+        const sixMonthsFromNow = new Date(now);
+        sixMonthsFromNow.setMonth(now.getMonth() + 6);
+        return eventDate >= now && eventDate <= sixMonthsFromNow;
+      }
+
+      return true;
+    });
   };
 
-  async function handleCreateEvent(e: React.FormEvent) {
-    e.preventDefault();
-    if (!title.trim() || !date || !activeGroupId) return;
+  const filteredEvents = getFilteredEvents();
 
-    // Converteer meeneemlijst array naar database JSON structuur
-    const itemsJson = bringList.map(item => ({
-      item: item,
-      claimed_by: null,
-      claimed_name: null
-    }));
+  const getDutchDayName = (dateStr: string) => {
+    const days = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
+    return days[new Date(dateStr).getDay()];
+  };
 
-    const { error } = await supabase.from("events").insert({
-      group_id: activeGroupId,
-      title: title.trim(),
-      date,
-      time: time || null,
-      location: location.trim() || null,
-      dresscode: dresscode.trim() || null,
-      bring_list: itemsJson,
-      attendees: [userId] // De maker is direct aanwezig! FOMO starter packet.
-    });
-
-    if (!error) {
-      setShowCreateSheet(false);
-      setTitle(""); setDate(""); setTime(""); setLocation(""); setDresscode(""); setBringList([]);
-      loadEvents();
+  // Helper om een datetime string mooi te formatteren (bv. 2026-07-04T23:00 -> 04/07 om 23:00)
+  const formatEndDateTime = (dateTimeStr: string) => {
+    try {
+      const d = new Date(dateTimeStr);
+      if (isNaN(d.getTime())) return dateTimeStr;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${day}/${month} om ${hours}:${minutes}`;
+    } catch {
+      return dateTimeStr;
     }
-  }
+  };
 
+  // Status: Gaan of Niet gaan
   async function toggleAttendance(event: any) {
-    const currentAttendees = event.attendees || [];
-    let updated: string[];
-
-    if (currentAttendees.includes(userId)) {
-      updated = currentAttendees.filter((id: string) => id !== userId);
-    } else {
-      updated = [...currentAttendees, userId];
-    }
-
+    const current = event.attendees || [];
+    const updated = current.includes(userId) ? current.filter((id: string) => id !== userId) : [...current, userId];
     await supabase.from("events").update({ attendees: updated }).eq("id", event.id);
-    loadEvents();
+    loadEventsAndMembers();
   }
 
+  // Multi-claim logica
   async function claimItem(event: any, itemIndex: number) {
-    const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", userId).single();
-    const updatedList = [...event.bring_list];
-    
-    if (updatedList[itemIndex].claimed_by === userId) {
-      // Unclaim
-      updatedList[itemIndex].claimed_by = null;
-      updatedList[itemIndex].claimed_name = null;
+    const currentName = groupProfiles[userId]?.full_name?.split(" ")[0] || "Lid";
+    const updatedList = [...(event.bring_list || [])];
+    const targetItem = updatedList[itemIndex];
+
+    if (!targetItem.claims) {
+      targetItem.claims = [];
+      if (targetItem.claimed_by) {
+        targetItem.claims.push({ user_id: targetItem.claimed_by, name: targetItem.claimed_name || "Lid" });
+        delete targetItem.claimed_by;
+        delete targetItem.claimed_name;
+      }
+    }
+
+    const existingClaimIndex = targetItem.claims.findIndex((c: any) => c.user_id === userId);
+
+    if (existingClaimIndex > -1) {
+      targetItem.claims.splice(existingClaimIndex, 1);
     } else {
-      // Claim
-      updatedList[itemIndex].claimed_by = userId;
-      updatedList[itemIndex].claimed_name = profile?.full_name || "Lid";
+      targetItem.claims.push({ user_id: userId, name: currentName });
     }
 
     await supabase.from("events").update({ bring_list: updatedList }).eq("id", event.id);
-    loadEvents();
+    loadEventsAndMembers();
   }
 
+  // Live vanaf kaart toevoegen
   async function addNewItemToExistingEvent(eventId: string) {
     const text = newEventItem[eventId];
-    if (!text || !text.trim()) return;
-
+    if (!text?.trim()) return;
     const event = events.find(e => e.id === eventId);
     if (!event) return;
 
-    const updatedList = [...(event.bring_list || []), { item: text.trim(), claimed_by: null, claimed_name: null }];
-    
+    const currentList = event.bring_list || [];
+    const updatedList = [...currentList, { item: text.trim(), claims: [] }];
+
     await supabase.from("events").update({ bring_list: updatedList }).eq("id", eventId);
     setNewEventItem({ ...newEventItem, [eventId]: "" });
-    loadEvents();
+    loadEventsAndMembers();
   }
 
-  if (loading) return <div className="text-sm font-medium text-neutral-400">Hangouts inladen...</div>;
-
-  if (!activeGroupId) {
-    return (
-      <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-neutral-100">
-        <p className="text-sm font-bold text-neutral-500">Selecteer of maak eerst een groep aan via het tabblad Groepen.</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="text-xs font-bold text-neutral-400">Minimalistische agenda opbouwen...</div>;
 
   return (
     <div className="space-y-6 select-none animate-in fade-in">
       
-      {/* HEADER SECTION */}
-      <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-neutral-100 pb-4 gap-3">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">Hangouts</h1>
-          <p className="text-xs font-bold text-neutral-400 mt-0.5">Plan momenten, drop dresscodes en verdeel snacks.</p>
+          <h1 className="text-2xl font-black tracking-tight">Agenda</h1>
+          <p className="text-xs font-bold text-neutral-400 mt-0.5">Mis niks. Zie direct wie er meegaat en verdeel de taken.</p>
         </div>
-        <div className="flex gap-1.5">
-          <button 
-            onClick={() => router.push("/availability")} 
-            className="px-3 py-2 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-xl active:scale-95 transition"
-          >
-            Bezetting Vastleggen
-          </button>
-          <button 
-            onClick={() => setShowCreateSheet(true)} 
-            className="px-3 py-2 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition"
-          >
-            + Hangout
-          </button>
-        </div>
+        <button 
+          onClick={() => { setFormError(null); setShowCreateSheet(true); }} 
+          className="sm:px-3.5 py-2 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition flex items-center justify-center gap-1"
+        >
+          <Plus size={14} /> Nieuw Event Plannen
+        </button>
       </div>
 
-      {/* EVENTS TIMELINE GRID */}
-      {events.length === 0 ? (
-        <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-neutral-100/60">
-          <p className="text-sm font-bold text-neutral-400">Er staan nog geen Hangouts gepland voor deze groep.</p>
+      {/* MINIMALISTISCHE TIMELINE TOGGLE */}
+      <div className="flex items-center justify-between bg-neutral-50 p-1 rounded-xl border border-neutral-100 max-w-md">
+        {(["day", "week", "month", "6month"] as const).map((view) => (
+          <button
+            key={view}
+            onClick={() => setCurrentView(view)}
+            className={`flex-1 py-1.5 text-[11px] font-black rounded-lg transition capitalize ${currentView === view ? "bg-white text-black shadow-3xs border border-neutral-200/40" : "text-neutral-400 hover:text-neutral-600"}`}
+          >
+            {view === "day" ? "Vandaag" : view === "week" ? "Week" : view === "month" ? "Maand" : "6 Maanden"}
+          </button>
+        ))}
+      </div>
+
+      {/* INSTAGRAM-STYLE VLAKKE GRID */}
+      {filteredEvents.length === 0 ? (
+        <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-neutral-100">
+          <p className="text-xs font-bold text-neutral-400">Geen geplande activiteiten voor dit tijdsbestek.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {events.map((event) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-neutral-100 bg-neutral-100 gap-[1px] overflow-hidden rounded-xl">
+          {filteredEvents.map((event) => {
             const isAttending = event.attendees?.includes(userId);
-            return (
-              <div key={event.id} className="bg-white border border-neutral-100 rounded-2xl p-4 shadow-3xs space-y-4">
-                
-                {/* Event Core Info */}
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-base font-black tracking-tight text-neutral-900">{event.title}</h3>
-                    <p className="text-xs font-bold text-neutral-400 flex items-center mt-1">
-                      <Calendar size={12} className="mr-1" /> {event.date} {event.time ? `om ${event.time}` : ""}
-                    </p>
-                  </div>
+            const isTrip = event.event_type === "trip";
+            const attendeesList = event.attendees || [];
 
-                  {/* Like/FOMO Social Attending Button */}
-                  <button 
-                    onClick={() => toggleAttendance(event)}
-                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-bold transition ${
-                      isAttending ? "bg-red-50 text-red-500" : "bg-neutral-50 text-neutral-700 hover:bg-neutral-100"
-                    }`}
-                  >
-                    <Heart size={13} fill={isAttending ? "currentColor" : "none"} />
-                    <span>{isAttending ? "Aanwezig" : "Gaan"}</span>
-                  </button>
+            return (
+              <div key={event.id} className="bg-white p-5 flex flex-col justify-between space-y-4">
+                
+                {/* Bovenste Info */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded ${isTrip ? "bg-amber-100 text-amber-800" : "bg-neutral-100 text-neutral-600"}`}>
+                      {getDutchDayName(event.date)} • {event.date}
+                    </span>
+                    <button 
+                      onClick={() => toggleAttendance(event)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-tight transition flex items-center gap-1 border ${isAttending ? "bg-red-50 border-red-100 text-red-600" : "bg-neutral-50 border-neutral-100 text-neutral-400 hover:text-neutral-600"}`}
+                    >
+                      <Heart size={10} fill={isAttending ? "currentColor" : "none"} />
+                      {isAttending ? "Ik ga mee" : "Aanmelden"}
+                    </button>
+                  </div>
+                  
+                  <h3 className="text-base font-black tracking-tight text-neutral-900">{event.title}</h3>
+                  
+                  {/* Tijdweergave met optioneel einduur (volledige datum + tijd) */}
+                  {event.time && (
+                    <p className="text-[11px] font-bold text-neutral-400">
+                      🕒 Tijd: {event.time} {event.end_time ? `tot ${formatEndDateTime(event.end_time)}` : ""}
+                    </p>
+                  )}
+                  
+                  {/* Adres weergave */}
+                  {event.location_address && (
+                    <div className="flex items-center gap-1 text-[11px] text-neutral-500 font-bold">
+                      <MapPin size={11} className="text-neutral-400 shrink-0" />
+                      <span className="truncate">{event.location_address}</span>
+                    </div>
+                  )}
+                  
+                  {/* Dresscode Weergave */}
+                  {event.dresscode && (
+                    <p className="text-[10px] font-bold text-neutral-500 bg-neutral-50 px-2 py-1 rounded-md inline-block border border-neutral-200/40">
+                      ✨ <b>Dresscode:</b> {event.dresscode}
+                    </p>
+                  )}
                 </div>
 
-                {/* Optional Metadata Grid */}
-                {(event.location || event.dresscode) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-neutral-50/50 p-2.5 rounded-xl text-xs">
-                    {event.location && (
-                      <div className="flex items-center space-x-1.5 font-medium text-neutral-700">
-                        <MapPin size={13} className="text-neutral-400" />
-                        <span className="truncate">📍 {event.location}</span>
+                {/* Live Deelnemers (FOMO) */}
+                <div className="flex items-center gap-2 bg-neutral-50 p-2 rounded-xl">
+                  {attendeesList.length === 0 ? (
+                    <span className="text-[9px] font-bold text-neutral-400 italic">Nog niemand aangemeld</span>
+                  ) : (
+                    <>
+                      <div className="flex items-center -space-x-1.5 overflow-hidden">
+                        {attendeesList.map((attId: string) => {
+                          const member = groupProfiles[attId];
+                          const fallbackName = attId === userId ? "Jij" : "Lid";
+                          return (
+                            <img 
+                              key={attId}
+                              src={member?.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb"} 
+                              className="w-6 h-6 rounded-full object-cover ring-2 ring-white" 
+                              alt={member?.full_name || fallbackName} 
+                              title={member?.full_name || fallbackName}
+                            />
+                          );
+                        })}
                       </div>
-                    )}
-                    {event.dresscode && (
-                      <div className="flex items-center space-x-1.5 font-medium text-neutral-700">
-                        <Shirt size={13} className="text-neutral-400" />
-                        <span className="truncate">👗 {event.dresscode}</span>
+                      <span className="text-[10px] font-black text-neutral-500">
+                        {attendeesList.length} mee
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Reis-specifiek: Route & Stops */}
+                {isTrip && (event.start_location || event.end_location) && (
+                  <div className="text-xs font-bold text-neutral-600 bg-neutral-50 p-2 rounded-lg space-y-1">
+                    <div className="flex items-center gap-1">
+                      <Navigation size={10} className="text-amber-600" />
+                      <span>{event.start_location || "Start"}</span>
+                      <ArrowRight size={10} />
+                      <span>{event.end_location || "Eind"}</span>
+                    </div>
+                    {event.intermediate_stops?.length > 0 && (
+                      <div className="text-[9px] text-neutral-400 pl-4">
+                        Route: {event.intermediate_stops.join(" ➔ ")}
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Social Post Style Attendance Count */}
-                {event.attendees?.length > 0 && (
-                  <div className="text-[11px] font-bold text-neutral-500 flex items-center space-x-1 px-1">
-                    <span className="flex -space-x-1.5 mr-1">
-                      {event.attendees.slice(0, 3).map((id: string, i: number) => (
-                        <div key={i} className="h-4 w-4 rounded-full bg-neutral-200 border border-white flex items-center justify-center text-[6px] font-bold">👤</div>
-                      ))}
-                    </span>
-                    <span>Geliked door {event.attendees.length} {event.attendees.length === 1 ? "persoon" : "mensen"}</span>
-                  </div>
-                )}
-
-                {/* Dynamic Bring List Area */}
-                <div className="border-t border-neutral-50 pt-3 space-y-2">
-                  <h4 className="text-[10px] font-extrabold uppercase text-neutral-400 tracking-wider flex items-center">
-                    <ShoppingBag size={11} className="mr-1" /> Wie brengt wat mee?
+                {/* DYNAMISCHE MULTI-CLAIM MEENEEMLIJST */}
+                <div className="space-y-2 border-t border-neutral-50 pt-3">
+                  <h4 className="text-[9px] font-extrabold uppercase text-neutral-400 tracking-wider flex items-center">
+                    <ShoppingBag size={10} className="mr-1" /> Wie neemt wat mee?
                   </h4>
-
-                  <div className="space-y-1.5">
+                  
+                  <div className="flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
                     {event.bring_list?.map((itemObj: any, index: number) => {
-                      const isClaimedByMe = itemObj.claimed_by === userId;
+                      const claims = itemObj.claims || [];
+                      const amIClaiming = claims.some((c: any) => c.user_id === userId);
+
                       return (
                         <div 
-                          key={index} 
+                          key={index}
                           onClick={() => claimItem(event, index)}
-                          className={`flex items-center justify-between p-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                            isClaimedByMe 
-                              ? "bg-neutral-900 border-neutral-900 text-white" 
-                              : itemObj.claimed_by 
-                              ? "bg-neutral-50 border-neutral-100 text-neutral-400 line-through" 
-                              : "bg-white border-neutral-100 text-neutral-700 hover:border-neutral-200"
-                          }`}
+                          className={`flex flex-col p-2 rounded-xl border cursor-pointer transition ${amIClaiming ? "bg-neutral-950 text-white border-neutral-950" : "bg-white text-neutral-700 hover:bg-neutral-50 border-neutral-100"}`}
                         >
-                          <span>{itemObj.item}</span>
-                          <span className={`text-[10px] ${isClaimedByMe ? "text-neutral-300" : "text-neutral-400"}`}>
-                            {itemObj.claimed_by ? `🙋‍♂️ ${itemObj.claimed_name}` : "Claim item"}
-                          </span>
+                          <div className="flex justify-between items-center text-xs font-bold">
+                            <span>{itemObj.item}</span>
+                            <span className="text-[9px] opacity-65 bg-neutral-100 px-1.5 py-0.5 rounded text-neutral-600 font-extrabold">
+                              {claims.length}x
+                            </span>
+                          </div>
+                          {claims.length > 0 && (
+                            <div className={`text-[9px] mt-0.5 font-bold flex flex-wrap gap-1 ${amIClaiming ? "text-neutral-300" : "text-neutral-400"}`}>
+                              🙋‍♂️ {claims.map((c: any) => c.name).join(", ")}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Leden kunnen zelf items droppen in de lijst */}
-                  <div className="flex gap-2 pt-1.5" onClick={e => e.stopPropagation()}>
+                  <div className="flex gap-1.5 pt-1">
                     <input 
                       type="text" 
-                      placeholder="Voeg iets toe aan de lijst..." 
+                      placeholder="+ Voeg item toe aan de lijst..." 
                       value={newEventItem[event.id] || ""}
                       onChange={e => setNewEventItem({ ...newEventItem, [event.id]: e.target.value })}
-                      className="flex-1 bg-neutral-50 border border-neutral-200/60 rounded-xl px-3 py-2 text-xs outline-none"
+                      className="flex-1 bg-neutral-50 border border-neutral-200/60 rounded-lg px-2 py-1 text-[11px] outline-none font-bold"
                     />
-                    <button 
-                      onClick={() => addNewItemToExistingEvent(event.id)}
-                      className="p-2 bg-neutral-100 rounded-xl text-neutral-800 active:scale-95 transition"
-                    >
-                      <Plus size={14} />
-                    </button>
+                    <button onClick={() => addNewItemToExistingEvent(event.id)} className="px-2.5 bg-neutral-900 text-white text-xs rounded-lg font-bold">+</button>
                   </div>
                 </div>
 
@@ -295,62 +394,180 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* DYNAMIC INSTAGRAM CREATE EVENT SHEET */}
+      {/* CREATIE MODAL */}
       {showCreateSheet && (
-        <div className="fixed inset-0 z-[999] bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <h2 className="text-sm font-black text-neutral-900">Nieuwe Hangout</h2>
-              <button onClick={() => setShowCreateSheet(false)} className="text-xs font-bold text-neutral-400">Sluiten</button>
+        <div className="fixed inset-0 z-[999] bg-black/20 backdrop-blur-xl flex items-end sm:items-center justify-center">
+          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-4">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+              <h2 className="text-xs font-black text-neutral-900">Nieuw event toevoegen</h2>
+              <button onClick={() => setShowCreateSheet(false)} className="text-xs font-bold text-neutral-400"><X size={16} /></button>
             </div>
 
-            <form onSubmit={handleCreateEvent} className="space-y-3">
+            {formError && (
+              <div className="bg-red-50 border border-red-100 text-red-600 text-[11px] font-bold p-2.5 rounded-xl">
+                ⚠️ {formError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-1.5 bg-neutral-100 p-1 rounded-xl">
+              <button type="button" onClick={() => { setEventType("hangout"); setFormError(null); }} className={`py-1.5 rounded-lg text-xs font-bold transition ${eventType === "hangout" ? "bg-white text-black shadow-3xs" : "text-neutral-500"}`}>🍻 Hangout</button>
+              <button type="button" onClick={() => { setEventType("trip"); setFormError(null); }} className={`py-1.5 rounded-lg text-xs font-bold transition ${eventType === "trip" ? "bg-white text-black shadow-3xs" : "text-neutral-500"}`}>✈️ Reis / Roadtrip</button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              setFormError(null);
+
+              if (!title.trim() || !date || !activeGroupId) {
+                setFormError("Vul alle verplichte basisvelden in.");
+                return;
+              }
+
+              // Harde validatie op locatie/adres
+              if (!locationAddress.trim()) {
+                setFormError("Je bent verplicht een locatie/adres op te geven!");
+                return;
+              }
+              
+              const payload: any = {
+                group_id: activeGroupId,
+                title: title.trim(),
+                date,
+                event_type: eventType,
+                location_address: locationAddress.trim(),
+                bring_list: modalBringList.map(item => ({ item, claims: [] })),
+                attendees: [userId], // Maker staat er direct in
+                dresscode: dresscode.trim() || null
+              };
+
+              if (eventType === "hangout") {
+                payload.time = time || null;
+                payload.end_time = hasEndTime && endTime ? endTime : null;
+              } else {
+                payload.end_date = endDate || null;
+                payload.start_location = startLocation.trim() || null;
+                payload.end_location = endLocation.trim() || null;
+                payload.intermediate_stops = stops;
+              }
+
+              supabase.from("events").insert(payload).then(({ error }) => {
+                if (!error) {
+                  setShowCreateSheet(false); setTitle(""); setDate(""); setTime(""); setEndTime(""); setHasEndTime(false); setLocationAddress(""); setEndDate(""); setStartLocation(""); setEndLocation(""); setStops([]); setDresscode(""); setModalBringList([]);
+                  loadEventsAndMembers();
+                } else {
+                  setFormError("Er ging iets mis bij het opslaan: " + error.message);
+                }
+              });
+            }} className="space-y-3">
               <div>
-                <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Titel *</label>
-                <input type="text" placeholder="bv. BBQ, Escaperoom, Café avond" value={title} onChange={e => setTitle(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none text-neutral-900 font-bold" />
+                <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Naam van activiteit</label>
+                <input type="text" placeholder={eventType === "hangout" ? "Barbecue, Thuisbieren, Clubs..." : "Roadtrip 2026..."} value={title} onChange={e => setTitle(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Datum *</label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none text-neutral-900 font-bold" />
-                </div>
-                <div>
-                  <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Tijdstip</label>
-                  <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none text-neutral-900 font-bold" />
-                </div>
-              </div>
-
+              {/* VERPLICHT LOCATIE/ADRES VELD */}
               <div>
-                <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Locatie (Optioneel)</label>
-                <input type="text" placeholder="Bij Thibeau, Gent, ..." value={location} onChange={e => setLocation(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none text-neutral-900 font-medium" />
+                <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Locatie / Adres (Verplicht) *</label>
+                <input type="text" placeholder="bv. Café De Klomp, Dorpsstraat 12 of Gent-Sint-Pieters..." value={locationAddress} onChange={e => setLocationAddress(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none border-l-2 border-l-black" />
               </div>
 
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Dresscode (Optioneel)</label>
-                <input type="text" placeholder="Casual, All Black, Pool party" value={dresscode} onChange={e => setDresscode(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none text-neutral-900 font-medium" />
+                <input type="text" placeholder="bv. Casual chic, Festival, All black..." value={dresscode} onChange={e => setDresscode(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
               </div>
 
-              {/* Bring list initialization block */}
+              {/* MEENEEMLIJST */}
               <div>
-                <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Meeneemlijst initialiseren</label>
+                <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Meeneemlijst vooraf opstellen</label>
                 <div className="flex gap-2">
-                  <input type="text" placeholder="bv. Chips, Stella 6-pack, Vlees" value={bringInput} onChange={e => setBringInput(e.target.value)} className="flex-1 bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none" />
-                  <button type="button" onClick={addBringItemToForm} className="bg-neutral-100 px-3 rounded-xl text-xs font-bold active:scale-95 transition">Voeg toe</button>
+                  <input type="text" placeholder="Voeg item toe..." value={modalBringInput} onChange={e => setModalBringInput(e.target.value)} className="flex-1 bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                  <button type="button" onClick={() => { if(modalBringInput.trim()){ setModalBringList([...modalBringList, modalBringInput.trim()]); setModalBringInput(""); } }} className="bg-black text-white px-4 rounded-xl text-xs font-bold">+</button>
                 </div>
-                {bringList.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {bringList.map((item, idx) => (
-                      <span key={idx} className="bg-neutral-50 text-neutral-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-neutral-100">
-                        {item}
+                {modalBringList.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2 max-h-24 overflow-y-auto">
+                    {modalBringList.map((item, i) => (
+                      <span key={i} className="bg-neutral-50 text-neutral-800 text-[10px] font-bold px-2 py-1 rounded-lg border flex items-center gap-1">
+                        🎒 {item}
+                        <button type="button" onClick={() => setModalBringList(modalBringList.filter((_, idx) => idx !== i))} className="text-neutral-400 hover:text-red-500">×</button>
                       </span>
                     ))}
                   </div>
                 )}
               </div>
 
-              <button type="submit" className="w-full bg-black text-white p-3 rounded-xl text-xs font-bold cursor-pointer active:scale-98 transition pt-3 mt-4">
-                Hangout Drop 🚀
+              {/* DATUM EN TIJDSTIPPEN */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">{eventType === "hangout" ? "Datum" : "Startdatum"}</label>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                </div>
+                
+                {eventType === "hangout" ? (
+                  <div>
+                    <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Starttijd</label>
+                    <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Einddatum</label>
+                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                  </div>
+                )}
+              </div>
+
+              {/* EINDTIJD TOGGLE (NÚ DUREN MET DATUM EN TIJD VOOR HANGOUTS) */}
+              {eventType === "hangout" && (
+                <div className="bg-neutral-50 p-2.5 rounded-xl space-y-2 border border-neutral-100">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={hasEndTime} onChange={e => setHasEndTime(e.target.checked)} className="rounded border-neutral-300 text-black focus:ring-black accent-black" />
+                    <span className="text-[11px] font-bold text-neutral-700">Heeft deze hangout een einduur/datum?</span>
+                  </label>
+                  
+                  {hasEndTime && (
+                    <div className="animate-in fade-in duration-200">
+                      <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Einddatum & Uur</label>
+                      <input 
+                        type="datetime-local" 
+                        value={endTime} 
+                        onChange={e => setEndTime(e.target.value)} 
+                        required={hasEndTime} 
+                        className="w-full bg-white border border-neutral-200 p-2 rounded-lg text-xs font-bold outline-none" 
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* REIS DETAILS */}
+              {eventType === "trip" && (
+                <div className="space-y-2 border-t border-neutral-50 pt-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Vertreklocatie</label>
+                      <input type="text" placeholder="Thuis..." value={startLocation} onChange={e => setStartLocation(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2 rounded-xl text-xs font-bold outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Eindbestemming</label>
+                      <input type="text" placeholder="Bestemming..." value={endLocation} onChange={e => setEndLocation(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2 rounded-xl text-xs font-bold outline-none" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Tussenstop toevoegen</label>
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="bv. Hotel of tankstation..." value={stopInput} onChange={e => setStopInput(e.target.value)} className="flex-1 bg-neutral-50 border border-neutral-100 p-2 rounded-xl text-xs font-bold outline-none" />
+                      <button type="button" onClick={() => { if(stopInput.trim()){ setStops([...stops, stopInput.trim()]); setStopInput(""); } }} className="bg-neutral-100 px-3 rounded-xl text-xs font-bold">+</button>
+                    </div>
+                    {stops.length > 0 && (
+                      <div className="text-[10px] text-neutral-500 mt-1 font-bold">
+                        Route verloop: {stops.join(" ➔ ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="w-full bg-black text-white p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2">
+                Event definitief opslaan 🚀
               </button>
             </form>
           </div>
