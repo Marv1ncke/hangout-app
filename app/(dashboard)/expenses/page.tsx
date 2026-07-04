@@ -183,8 +183,8 @@ export default function ExpensesPage() {
 
   // Native Contact Picker handler
   async function handlePickContact() {
-    triggerHaptic("light");
-    try {
+    triggerHaptic(15);
+        try {
       const props = ["name"];
       const options = { multiple: false };
       const contacts = await (navigator as any).contacts.select(props, options);
