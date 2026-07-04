@@ -198,50 +198,66 @@ body {
 ::view-transition-new(root) {
   animation: 210ms cubic-bezier(0, 0, 0.2, 1) both fade-in;
 }
+/* ==========================================================================
+   NATIVE iOS & ANDROID PWA LAYOUT CORRECTIONS
+   ========================================================================== */
 
-/* 1. DE HEADER FIX: Geen doorzichtige content rond Dynamic Island */
+/* 1. DE HEADER FIX: Vlekkeloos achter het Dynamic Island */
 .native-header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
+  width: 100vw;
   z-index: 50;
+  display: flex;
+  align-items: center;
   
-  /* Start 100% bovenaan de notch */
+  /* Volledige dekking inclusief statusbalk padding */
   padding-top: env(safe-area-inset-top) !important;
-  height: calc(env(safe-area-inset-top) + 56px) !important;
+  height: calc(env(safe-area-inset-top) + 50px) !important;
   
-  /* Volledig dekkend glassmorphism */
-  background-color: rgba(255, 255, 255, 0.94) !important;
-  backdrop-filter: blur(20px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(20px) saturate(210%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(210%) !important;
   border-b: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* Zorg dat pagina content pas EXACT onder de header begint */
+/* Content start direct onder de statusbalk + header bar */
 main {
   padding-top: calc(env(safe-area-inset-top) + 60px) !important;
 }
 
-/* 2. DE NAVIGATIEBALK FIX: Verberg de zwarte home-streep, knopjes subtiel omhoog */
+/* 2. DE NAVIGATIEBALK FIX: Schermbreed, vult de bodem, knoppen perfect gecentreerd */
 .native-bottom-bar {
   position: fixed;
   bottom: 0;
-  inset-x: 0;
+  left: 0;
+  right: 0;
+  width: 100vw;
   z-index: 40;
   
-  /* Eet de home-streep op door safe area te gebruiken */
-  padding-bottom: env(safe-area-inset-bottom) !important;
-  height: calc(env(safe-area-inset-bottom) + 54px) !important;
+  /* Flexbox centrering */
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
   
-  /* Dekkend wit zodat de zwarte streep onzichtbaar mengt */
-  background-color: rgba(255, 255, 255, 0.96) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-t: 1px solid rgba(0, 0, 0, 0.05);
+  /* Berekening: geef padding aan de onderkant voor de iOS-balk, maar houd de totale hoogte stabiel */
+  padding-bottom: env(safe-area-inset-bottom) !important;
+  height: calc(env(safe-area-inset-bottom) + 58px) !important;
+  
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border-t: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* Schuif de icoontjes een heel klein beetje omhoog */
+/* Subtiele correctie om de icoontjes optisch te centreren boven de home-balk */
 .native-nav-link {
-  transform: translateY(-3px) !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding-top: 4px;
 }

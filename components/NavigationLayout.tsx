@@ -157,8 +157,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
       </main>
 
       {/* 📱 NATIVE MOBILE BOTTOM NAV - MET INTEGRATED HOME BAR ONDERDRUKKING */}
-      <nav className="native-bottom-bar flex items-center justify-around px-2 z-40 md:hidden select-none">
-        {navItems.map((item) => {
+      <nav className="native-bottom-bar fixed bottom-0 left-0 right-0 w-full flex items-center justify-around px-2 z-40 md:hidden select-none">        {navItems.map((item) => {
           const isActive = pathname === item.path;
           return (
             <Link 

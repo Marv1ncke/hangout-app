@@ -6,6 +6,7 @@ import InstallBanner from "@/components/InstallBanner";
 import AppBadgeRegistry from "@/components/AppBadgeRegistry";
 import PushNotificationRegistry from "@/components/PushNotificationRegistry";
 import AppRegistry from "@/components/AppRegistry"; // <-- RECHTSALEEF GEÏMPORTEERD
+import SmoothScroll from "@/components/SmoothScroll";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -38,15 +39,17 @@ export default function RootLayout({
 }) {
   return (
     <ViewTransitions>
-      <AppRegistry /> {/* <-- BOEM! HIER ACTIVEERT HIJ NU DIRECT */}
+      <AppRegistry />
       <html lang="en" className="antialiased">
         <body className="bg-neutral-50/50 text-neutral-900">
-          <NavigationLayout>
-            {children}
-            <InstallBanner />
-            <AppBadgeRegistry />
-            <PushNotificationRegistry />
-          </NavigationLayout>
+          <SmoothScroll> {/* <-- HIER OMHEEN WIKKELEN */}
+            <NavigationLayout>
+              {children}
+              <InstallBanner />
+              <AppBadgeRegistry />
+              <PushNotificationRegistry />
+            </NavigationLayout>
+          </SmoothScroll>
         </body>
       </html>
     </ViewTransitions>
