@@ -256,7 +256,7 @@ main {
   padding-bottom: env(safe-area-inset-bottom) !important;
   
   /* Volledig dekkend wit (of verander naar #000000 als je een zwarte balk wilt) */
-  background-color: #000000 !important;
+  background-color: #ffffff00 !important;
   border-t: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
 }
