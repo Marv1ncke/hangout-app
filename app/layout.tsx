@@ -42,14 +42,12 @@ export default function RootLayout({
       <AppRegistry />
       <html lang="en" className="antialiased">
         <body className="bg-neutral-50/50 text-neutral-900">
-          <SmoothScroll> {/* <-- HIER OMHEEN WIKKELEN */}
-            <NavigationLayout>
-              {children}
-              <InstallBanner />
-              <AppBadgeRegistry />
-              <PushNotificationRegistry />
-            </NavigationLayout>
-          </SmoothScroll>
+          <NavigationLayout>
+            {children}
+            <InstallBanner />
+            <AppBadgeRegistry />
+            <PushNotificationRegistry />
+          </NavigationLayout>
         </body>
       </html>
     </ViewTransitions>

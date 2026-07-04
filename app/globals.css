@@ -198,9 +198,17 @@ body {
 ::view-transition-new(root) {
   animation: 210ms cubic-bezier(0, 0, 0.2, 1) both fade-in;
 }
+
 /* ==========================================================================
    NATIVE iOS & ANDROID PWA LAYOUT CORRECTIONS
    ========================================================================== */
+
+/* Native iOS Momentum Scroll herstellen (Vervanger voor Lenis op mobiel) */
+html, body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* Forceert die native, boterzachte Apple-scroll feel */
+  overscroll-behavior-y: none;
+}
 
 /* 1. DE HEADER FIX: Vlekkeloos achter het Dynamic Island */
 .native-header {
@@ -213,22 +221,20 @@ body {
   display: flex;
   align-items: center;
   
-  /* Volledige dekking inclusief statusbalk padding */
   padding-top: env(safe-area-inset-top) !important;
   height: calc(env(safe-area-inset-top) + 50px) !important;
   
-  background-color: rgba(255, 255, 255, 0.88) !important;
+  background-color: rgba(255, 255, 255, 0.94) !important;
   backdrop-filter: blur(20px) saturate(210%) !important;
   -webkit-backdrop-filter: blur(20px) saturate(210%) !important;
   border-b: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* Content start direct onder de statusbalk + header bar */
 main {
-  padding-top: calc(env(safe-area-inset-top) + 60px) !important;
+  padding-top: calc(env(safe-area-inset-top) + 65px) !important;
 }
 
-/* 2. DE NAVIGATIEBALK FIX: Schermbreed, vult de bodem, knoppen perfect gecentreerd */
+/* 2. DE NAVIGATIEBALK FIX: Perfecte hoogte, knoppen hoog genoeg, gecamoufleerde home-streep */
 .native-bottom-bar {
   position: fixed;
   bottom: 0;
@@ -237,27 +243,29 @@ main {
   width: 100vw;
   z-index: 40;
   
-  /* Flexbox centrering */
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Knoppen uitlijnen vanaf de bovenkant van de balk */
   justify-content: space-around;
   
-  /* Berekening: geef padding aan de onderkant voor de iOS-balk, maar houd de totale hoogte stabiel */
-  padding-bottom: env(safe-area-inset-bottom) !important;
-  height: calc(env(safe-area-inset-bottom) + 58px) !important;
+  /* We geven de knoppen exact 60px ademruimte aan de bovenkant */
+  padding-top: 6px !important;
   
-  background-color: rgba(255, 255, 255, 0.94) !important;
-  backdrop-filter: blur(20px) saturate(190%);
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  border-t: 1px solid rgba(0, 0, 0, 0.06);
+  /* De totale hoogte is nu de knoppenruimte (60px) + de exacte dikte van de iOS safe area */
+  height: calc(env(safe-area-inset-bottom) + 60px) !important;
+  /* Extra padding onderin om te zorgen dat er GEEN content onderdoor piept */
+  padding-bottom: env(safe-area-inset-bottom) !important;
+  
+  /* Volledig dekkend wit (of verander naar #000000 als je een zwarte balk wilt) */
+  background-color: #000000 !important;
+  border-t: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
 }
 
-/* Subtiele correctie om de icoontjes optisch te centreren boven de home-balk */
+/* Zorg dat de linkjes zelf niet tegen de bodem plakken */
 .native-nav-link {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  padding-top: 4px;
+  height: 48px; /* Vaste compacte hoogte voor de klik-zone */
 }
