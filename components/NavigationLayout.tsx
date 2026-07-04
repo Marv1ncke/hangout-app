@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
-import Link from "next/link";
+import { Link } from "next-view-transitions";
 import { Calendar, Users, Clock, CreditCard, Bell, Info, User, ChevronDown } from "lucide-react";
 
 interface NavigationLayoutProps {

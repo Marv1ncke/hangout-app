@@ -1,5 +1,6 @@
 import React from "react";
 import { Metadata, Viewport } from "next";
+import { ViewTransitions } from "next-view-transitions";
 import NavigationLayout from "@/components/NavigationLayout";
 import InstallBanner from "@/components/InstallBanner";
 import AppBadgeRegistry from "@/components/AppBadgeRegistry";
@@ -29,22 +30,23 @@ export const metadata: Metadata = {
     ],
   },
 };
-
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="antialiased">
-      <body className="bg-neutral-50/50 text-neutral-900">
-        <NavigationLayout>
-          {children}
-          <InstallBanner />
-          <AppBadgeRegistry />
-          <PushNotificationRegistry/>
-        </NavigationLayout>
-      </body>
-    </html>
+    <ViewTransitions>
+      <html lang="en" className="antialiased">
+        <body className="bg-neutral-50/50 text-neutral-900">
+          <NavigationLayout>
+            {children}
+            <InstallBanner />
+            <AppBadgeRegistry />
+            <PushNotificationRegistry />
+          </NavigationLayout>
+        </body>
+      </html>
+    </ViewTransitions>
   );
 }

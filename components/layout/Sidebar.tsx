@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "next-view-transitions";
+;
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";

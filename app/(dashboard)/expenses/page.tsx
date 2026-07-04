@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { CreditCard, Plus, ArrowRight, CheckCircle2, Archive } from "lucide-react";
+import { CreditCard, Plus, ArrowRight, CheckCircle2, Archive, UserPlus } from "lucide-react";
+import { triggerHaptic } from "@/lib/haptics";
 
 export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
@@ -19,9 +20,19 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState("");
   const [payerId, setPayerId] = useState("");
 
+  // Contact Picker Support State
+  const [isContactPickerSupported, setIsContactPickerSupported] = useState(false);
+
   // Wiskunde output
   const [balances, setBalances] = useState<{ [key: string]: number }>({});
   const [suggestedTransfers, setSuggestedTransfers] = useState<any[]>([]);
+
+  // Check support voor Contact Picker API (2026 Web Standaard)
+  useEffect(() => {
+    if (typeof window !== "undefined" && "contacts" in navigator && "ContactsManager" in window) {
+      setIsContactPickerSupported(true);
+    }
+  }, []);
 
   const calculateSplitwise = useCallback((currentExpenses: any[], members: any[]) => {
     if (members.length === 0) return;
@@ -170,6 +181,31 @@ export default function ExpensesPage() {
     }
   }
 
+  // Native Contact Picker handler
+  async function handlePickContact() {
+    triggerHaptic("light");
+    try {
+      const props = ["name"];
+      const options = { multiple: false };
+      const contacts = await (navigator as any).contacts.select(props, options);
+      
+      if (contacts && contacts.length > 0) {
+        const pickedName = contacts[0].name?.[0];
+        if (pickedName) {
+          // Zoek matching groepslid op basis van (gedeeltelijke) naam
+          const matchedMember = groupMembers.find(m => 
+            m.full_name?.toLowerCase().includes(pickedName.toLowerCase())
+          );
+          if (matchedMember) {
+            setPayerId(matchedMember.id);
+          }
+        }
+      }
+    } catch (err) {
+      console.log("Contact picker cancelled or failed", err);
+    }
+  }
+
   async function archiveCurrentPot() {
     if (!activeGroupId || expenses.length === 0) return;
     const confirmReset = confirm("Weet je zeker dat je de huidige pot wilt afrekenen? Alle huidige uitgaven worden gearchiveerd en de balansen gaan terug naar €0.00.");
@@ -206,7 +242,7 @@ export default function ExpensesPage() {
             </button>
           )}
           <button 
-            onClick={() => setShowAddSheet(true)}
+            onClick={() => { triggerHaptic("light"); setShowAddSheet(true); }}
             className="px-3.5 py-2 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition flex items-center gap-1"
           >
             <Plus size={14} /> Uitgave Toevoegen
@@ -311,11 +347,24 @@ export default function ExpensesPage() {
 
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Wie heeft betaald?</label>
-                <select value={payerId} onChange={e => setPayerId(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none font-bold text-neutral-800">
-                  {groupMembers.map(m => (
-                    <option key={m.id} value={m.id}>{m.full_name}</option>
-                  ))}
-                </select>
+                <div className="relative flex items-center">
+                  <select value={payerId} onChange={e => setPayerId(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none font-bold text-neutral-800 pr-10 appearance-none">
+                    {groupMembers.map(m => (
+                      <option key={m.id} value={m.id}>{m.full_name}</option>
+                    ))}
+                  </select>
+                  
+                  {isContactPickerSupported && (
+                    <button
+                      type="button"
+                      onClick={handlePickContact}
+                      className="absolute right-2 p-1.5 text-neutral-500 hover:text-black active:scale-90 transition"
+                      title="Kies uit je iPhone/Android contacten"
+                    >
+                      <UserPlus size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <button type="submit" className="w-full bg-black text-white p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2">
