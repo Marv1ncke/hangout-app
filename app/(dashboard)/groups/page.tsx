@@ -1,24 +1,24 @@
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
-
 
 interface Group {
   id: string;
   name: string;
   join_code: string;
+  invite_code: string;
   is_protected: boolean;
 }
 
 interface PendingRequest {
   id: string;
   group_id: string;
-  profile_id: string;
+  user_id: string;
   group_name: string;
   user_name: string;
   avatar_url: string;
@@ -45,55 +45,60 @@ export default function GroupsPage() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  useEffect(() => {
-    async function loadGroupsData() {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
-      setUserId(userData.user.id);
+  async function loadGroupsData() {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return;
+    const currentUserId = userData.user.id;
+    setUserId(currentUserId);
 
-      // 1. Haal groepen op waar de gebruiker actief lid van is
-      const { data: myMemberships } = await supabase
+    // 1. Haal groepen op waar de gebruiker actief lid van is (via user_id ipv profile_id)
+    const { data: myMemberships } = await supabase
+      .from("group_members")
+      .select("group_id, status")
+      .eq("user_id", currentUserId)
+      .eq("status", "active");
+
+    if (myMemberships && myMemberships.length > 0) {
+      const groupIds = myMemberships.map(m => m.group_id);
+      const { data: groupsData } = await supabase
+        .from("groups")
+        .select("id, name, join_code, invite_code, is_protected")
+        .in("id", groupIds);
+      
+      if (groupsData) setGroups(groupsData);
+
+      // 2. Haal openstaande toelatingsverzoeken (pending) op voor deze groepen
+      const { data: incoming } = await supabase
         .from("group_members")
-        .select("group_id, status")
-        .eq("profile_id", userData.user.id)
-        .eq("status", "active");
+        .select(`
+          id,
+          group_id,
+          user_id,
+          groups:group_id ( name ),
+          profiles:user_id ( full_name, avatar_url )
+        `)
+        .in("group_id", groupIds)
+        .eq("status", "pending");
 
-      if (myMemberships && myMemberships.length > 0) {
-        const groupIds = myMemberships.map(m => m.group_id);
-        const { data: groupsData } = await supabase
-          .from("groups")
-          .select("id, name, join_code, is_protected")
-          .in("id", groupIds);
-        
-        if (groupsData) setGroups(groupsData);
-
-        // 2. Als beheerder/lid van deze groepen, haal openstaande toelatingsverzoeken (pending) op
-        const { data: incoming } = await supabase
-          .from("group_members")
-          .select(`
-            id,
-            group_id,
-            profile_id,
-            groups:group_id ( name ),
-            profiles:profile_id ( full_name, avatar_url )
-          `)
-          .in("group_id", groupIds)
-          .eq("status", "pending");
-
-        if (incoming) {
-          const formattedRequests = (incoming as any[]).map(req => ({
-            id: req.id,
-            group_id: req.group_id,
-            profile_id: req.profile_id,
-            group_name: req.groups?.name || "Groep",
-            user_name: req.profiles?.full_name || "Iemand",
-            avatar_url: req.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${req.profile_id}`
-          }));
-          setPendingRequests(formattedRequests);
-        }
+      if (incoming) {
+        const formattedRequests = (incoming as any[]).map(req => ({
+          id: req.id,
+          group_id: req.group_id,
+          user_id: req.user_id,
+          group_name: req.groups?.name || "Groep",
+          user_name: req.profiles?.full_name || "Iemand",
+          avatar_url: req.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${req.user_id}`
+        }));
+        setPendingRequests(formattedRequests);
       }
-      setLoading(false);
+    } else {
+      setGroups([]);
+      setPendingRequests([]);
     }
+    setLoading(false);
+  }
+
+  useEffect(() => {
     loadGroupsData();
   }, []);
 
@@ -103,10 +108,16 @@ export default function GroupsPage() {
 
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // Maak de groep aan met het gekozen beveiligingstype
+    // Fix: We sturen zowel join_code als invite_code mee om de not-null constraint te pleasen
     const { data: newGroup, error: groupError } = await supabase
       .from("groups")
-      .insert({ name: groupName.trim(), join_code: generatedCode, is_protected: isProtected })
+      .insert({ 
+        name: groupName.trim(), 
+        join_code: generatedCode, 
+        invite_code: generatedCode, 
+        is_protected: isProtected,
+        created_by: userId
+      })
       .select()
       .single();
 
@@ -115,25 +126,37 @@ export default function GroupsPage() {
       return;
     }
 
-    // De maker is direct een 'active' lid
+    // Fix: Maker direct toevoegen via 'user_id' ipv 'profile_id'
     await supabase.from("group_members").insert({
       group_id: newGroup.id,
-      profile_id: userId,
+      user_id: userId,
       status: "active"
     });
 
+    // Optioneel: Update direct de actieve groep in het profiel van de student
+    await supabase
+      .from("profiles")
+      .update({ selected_group_id: newGroup.id })
+      .eq("id", userId);
+
     showNotification("Groep aangemaakt! 🎉", `Code: ${generatedCode}`);
+    setGroupName("");
+    setIsProtected(false);
     setShowCreateSheet(false);
-    setTimeout(() => window.location.reload(), 1500);
+    
+    // Smooth state update in plaats van een harde window reload
+    setLoading(true);
+    await loadGroupsData();
   }
 
   async function handleJoinCodeSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!joinCodeInput.trim()) return;
 
+    // Zoek de groep via join_code
     const { data: targetGroup, error: findError } = await supabase
       .from("groups")
-      .select("id, name, is_protected")
+      .select("id, name, is_protected, join_code, invite_code")
       .eq("join_code", joinCodeInput.trim().toUpperCase())
       .maybeSingle();
 
@@ -142,12 +165,12 @@ export default function GroupsPage() {
       return;
     }
 
-    // Bepaal de status op basis van het groepstype
     const memberStatus = targetGroup.is_protected ? "pending" : "active";
 
+    // Fix: Invoegen met correcte kolomnaam 'user_id'
     const { error: joinError } = await supabase.from("group_members").insert({
       group_id: targetGroup.id,
-      profile_id: userId,
+      user_id: userId,
       status: memberStatus
     });
 
@@ -157,12 +180,19 @@ export default function GroupsPage() {
       showNotification("Verzoek verzonden! 🔒", `Wacht tot de leden van ${targetGroup.name} je toelaten.`);
     } else {
       showNotification("Succesvol toegevoegd! 🎉", `Je zit nu in ${targetGroup.name}`);
+      
+      // Update ook direct de geselecteerde groep voor directe toegang in de UI
+      await supabase
+        .from("profiles")
+        .update({ selected_group_id: targetGroup.id })
+        .eq("id", userId);
     }
 
+    setJoinCodeInput("");
     setShowJoinSheet(false);
-    if (!targetGroup.is_protected) {
-      setTimeout(() => window.location.reload(), 1500);
-    }
+    
+    setLoading(true);
+    await loadGroupsData();
   }
 
   async function handleResolveRequest(requestId: string, approve: boolean) {
@@ -179,15 +209,22 @@ export default function GroupsPage() {
         .eq("id", requestId);
       showNotification("Verzoek geweigerd");
     }
+    
+    // Instant UI update van de lopende verzoeken
     setPendingRequests(prev => prev.filter(r => r.id !== requestId));
+    
+    // Ververs het groepenoverzicht mocht er iemand zijn toegelaten
+    if (approve) {
+      await loadGroupsData();
+    }
   }
 
   if (loading) return <div className="p-6 text-sm text-neutral-400 font-medium">Groepen laden...</div>;
 
   return (
-    <div className="space-y-8 relative">
+    <div className="space-y-8 relative page-transition-wrapper">
       
-      {/* NATIVE PUSH TOAST BANNER (Vliegt binnen als een echte iOS notificatie) */}
+      {/* NATIVE PUSH TOAST BANNER */}
       {toast && (
         <div className="fixed top-4 left-4 right-4 z-50 flex justify-center pointer-events-none animate-fade-in">
           <div className="bg-black/95 text-white w-full max-w-sm rounded-2xl p-4 shadow-2xl backdrop-blur-md border border-white/10 flex items-start space-x-3 pointer-events-auto">
@@ -210,7 +247,7 @@ export default function GroupsPage() {
 
       {/* GEBRUIKER IS NOG GEEN LID MELDING */}
       {groups.length === 0 && (
-        <div className="bg-neutral-50 rounded-2xl p-8 text-center max-w-md mx-auto border border-neutral-100/40">
+        <div className="bg-neutral-50 rounded-2xl p-8 text-center max-w-md mx-auto border border-neutral-100/40 animate-fade-in">
           <p className="text-sm text-neutral-500 mb-4">Je bent momenteel geen actief lid van een groep.</p>
           <div className="flex gap-2 justify-center">
             <button onClick={() => setShowJoinSheet(true)} className="bg-neutral-100 text-neutral-800 text-xs font-bold px-4 py-2.5 rounded-xl active:scale-95 transition">Code Invullen</button>
@@ -222,7 +259,7 @@ export default function GroupsPage() {
       {groups.length > 0 && (
         <div className="space-y-6">
           
-          {/* TOELATINGSVERZOEKEN NOTIFICATIE LIJST (Alleen zichtbaar als er aanvragen zijn) */}
+          {/* TOELATINGSVERZOEKEN NOTIFICATIE LIJST */}
           {pendingRequests.length > 0 && (
             <div className="bg-amber-50/60 border border-amber-200/40 rounded-2xl p-4 space-y-3 animate-fade-in">
               <div className="flex items-center space-x-1.5">
@@ -232,12 +269,14 @@ export default function GroupsPage() {
                 {pendingRequests.map(req => (
                   <div key={req.id} className="bg-white p-3 rounded-xl flex items-center justify-between gap-3 shadow-xs">
                     <div className="flex items-center space-x-2.5 min-w-0">
-                      <img src={req.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                      <div className="relative w-6 h-6 rounded-full overflow-hidden shrink-0">
+                        <Image src={req.avatar_url} alt="Avatar" fill className="object-cover" unoptimized />
+                      </div>
                       <p className="text-xs font-semibold text-neutral-800 truncate">
                         <strong>{req.user_name}</strong> wil naar <em>{req.group_name}</em>
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => handleResolveRequest(req.id, false)} className="text-[11px] font-bold text-neutral-400 hover:text-red-500 px-2 py-1">Weiger</button>
                       <button onClick={() => handleResolveRequest(req.id, true)} className="bg-black text-white text-[11px] font-bold px-2.5 py-1 rounded-lg">Laat toe</button>
                     </div>
@@ -248,7 +287,7 @@ export default function GroupsPage() {
           )}
 
           {/* GROEPEN OVERZICHT MATRIX */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
             {groups.map(g => (
               <div key={g.id} className="bg-white border border-neutral-100/70 p-5 rounded-2xl shadow-xs flex flex-col justify-between items-start gap-4">
                 <div className="space-y-1">
