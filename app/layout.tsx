@@ -1,10 +1,9 @@
-// app/layout.tsx
-import type { Metadata } from "next";
-import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "Hangout App",
-  description: "Group scheduling for friends",
+import React from "react";
+import NavigationLayout from "@/components/NavigationLayout";
+import "./globals.css"; // Fixed: relative path to the local app folder
+export const metadata = {
+  title: "Hangout Planner",
+  description: "A sleek workspace for your friend group.",
 };
 
 export default function RootLayout({
@@ -13,8 +12,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="antialiased">{children}</body>
+    <html lang="en" className="antialiased">
+      <body className="bg-neutral-50/50 text-neutral-900">
+        <NavigationLayout>{children}</NavigationLayout>
+      </body>
     </html>
   );
 }
