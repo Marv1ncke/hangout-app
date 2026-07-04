@@ -167,3 +167,13 @@
     font-size: 16px !important; /* Forceert iOS om NIET in te zoomen */
   }
 }
+
+body {
+  overscroll-behavior: none;
+}
+
+html, body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; /* Voorkomt dat tekst per ongeluk geselecteerd wordt bij tikken */
+}

@@ -110,11 +110,13 @@ export default function GroupsPage() {
 
   useEffect(() => {
     isMounted.current = true;
-    loadGroupsData();
+    const timer = setTimeout(() => {
+      loadGroupsData();
+    }, 0);
 
     window.addEventListener("groupChanged", loadGroupsData);
     return () => {
-      isMounted.current = false;
+      clearTimeout(timer);
       window.removeEventListener("groupChanged", loadGroupsData);
     };
   }, []);

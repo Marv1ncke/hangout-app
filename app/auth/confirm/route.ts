@@ -1,28 +1,33 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { type EmailOtpType } from '@supabase/supabase-js';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const token_hash = searchParams.get('token_hash');
-  const type = searchParams.get('type');
+  const type = searchParams.get('type') as EmailOtpType | null;
   const next = searchParams.get('next') ?? '/dashboard';
 
   if (token_hash && type) {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll(cookiesToSet) { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); }
+        }
+      }
+    );
     
-    // Valideer de token die via de mail is binnengekomen
-    const { error } = await supabase.auth.verifyOtp({
-      type: type as any,
-      token_hash,
-    });
+    const { error } = await supabase.auth.verifyOtp({ type, token_hash });
 
     if (!error) {
-      // Succes! Stuur ze door naar het dashboard (of de pagina in 'next')
       return NextResponse.redirect(new URL(next, request.url));
     }
   }
 
-  // Mislukt? Stuur terug naar login met een duidelijke foutmelding
   return NextResponse.redirect(new URL('/login?error=Invalid or expired link', request.url));
 }

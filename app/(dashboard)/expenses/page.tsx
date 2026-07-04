@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { CreditCard, Plus, ArrowRight, CheckCircle2, Archive } from "lucide-react";
 
@@ -23,65 +23,7 @@ export default function ExpensesPage() {
   const [balances, setBalances] = useState<{ [key: string]: number }>({});
   const [suggestedTransfers, setSuggestedTransfers] = useState<any[]>([]);
 
-  async function loadExpensesData() {
-    setLoading(true);
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) return;
-    setUserId(userData.user.id);
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("selected_group_id")
-      .eq("id", userData.user.id)
-      .maybeSingle();
-
-    if (!profile?.selected_group_id) {
-      setLoading(false);
-      return;
-    }
-    const groupId = profile.selected_group_id;
-    setActiveGroupId(groupId);
-
-    // 1. Haal de GEBRUIKERS van de actieve groep op voor de selector
-    const { data: members } = await supabase
-      .from("group_members")
-      .select("user_id, profiles(id, full_name, avatar_url)")
-      .eq("group_id", groupId)
-      .eq("status", "active");
-
-    const formattedMembers = members?.map((m: any) => m.profiles).filter(Boolean) || [];
-    setGroupMembers(formattedMembers);
-    
-    // Zet de standaard betaler naar de ingelogde user, mits aanwezig in de groep
-    if (formattedMembers.some(m => m.id === userData.user.id)) {
-      setPayerId(userData.user.id);
-    } else if (formattedMembers.length > 0) {
-      setPayerId(formattedMembers[0].id);
-    }
-
-    // 2. Haal UITSLUITEND actieve (niet-gearchiveerde) uitgaven op
-    const { data: expensesData } = await supabase
-      .from("expenses")
-      .select("*")
-      .eq("group_id", groupId)
-      .eq("is_archived", false)
-      .order("created_at", { ascending: false });
-
-    const currentExpenses = expensesData || [];
-    setExpenses(currentExpenses);
-
-    // 3. Wiskunde berekenen
-    calculateSplitwise(currentExpenses, formattedMembers);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    loadExpensesData();
-    window.addEventListener("groupChanged", loadExpensesData);
-    return () => window.removeEventListener("groupChanged", loadExpensesData);
-  }, []);
-
-  function calculateSplitwise(currentExpenses: any[], members: any[]) {
+  const calculateSplitwise = useCallback((currentExpenses: any[], members: any[]) => {
     if (members.length === 0) return;
 
     const netBalances: { [userId: string]: number } = {};
@@ -139,7 +81,73 @@ export default function ExpensesPage() {
       if (creditor.balance < 0.01) j++;
     }
     setSuggestedTransfers(transfers);
-  }
+  }, []);
+
+  const loadExpensesData = useCallback(async () => {
+    setLoading(true);
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      setLoading(false);
+      return;
+    }
+    setUserId(userData.user.id);
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("selected_group_id")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+
+    if (!profile?.selected_group_id) {
+      setLoading(false);
+      return;
+    }
+    const groupId = profile.selected_group_id;
+    setActiveGroupId(groupId);
+
+    // 1. Haal de GEBRUIKERS van de actieve groep op voor de selector
+    const { data: members } = await supabase
+      .from("group_members")
+      .select("user_id, profiles(id, full_name, avatar_url)")
+      .eq("group_id", groupId)
+      .eq("status", "active");
+
+    const formattedMembers = members?.map((m: any) => m.profiles).filter(Boolean) || [];
+    setGroupMembers(formattedMembers);
+    
+    // Zet de standaard betaler naar de ingelogde user, mits aanwezig in de groep
+    if (formattedMembers.some(m => m.id === userData.user.id)) {
+      setPayerId(userData.user.id);
+    } else if (formattedMembers.length > 0) {
+      setPayerId(formattedMembers[0].id);
+    }
+
+    // 2. Haal UITSLUITEND actieve (niet-gearchiveerde) uitgaven op
+    const { data: expensesData } = await supabase
+      .from("expenses")
+      .select("*")
+      .eq("group_id", groupId)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false });
+
+    const currentExpenses = expensesData || [];
+    setExpenses(currentExpenses);
+
+    // 3. Wiskunde berekenen
+    calculateSplitwise(currentExpenses, formattedMembers);
+    setLoading(false);
+  }, [calculateSplitwise]);
+
+  useEffect(() => {
+    loadExpensesData();
+    
+    const handleGroupChange = () => {
+      loadExpensesData();
+    };
+
+    window.addEventListener("groupChanged", handleGroupChange);
+    return () => window.removeEventListener("groupChanged", handleGroupChange);
+  }, [loadExpensesData]);
 
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault();
@@ -161,7 +169,6 @@ export default function ExpensesPage() {
     }
   }
 
-  // 🧹 Settle up & archiveer huidige pot (Wow factor: schone lei voor de nieuwe maand)
   async function archiveCurrentPot() {
     if (!activeGroupId || expenses.length === 0) return;
     const confirmReset = confirm("Weet je zeker dat je de huidige pot wilt afrekenen? Alle huidige uitgaven worden gearchiveerd en de balansen gaan terug naar €0.00.");
@@ -216,7 +223,7 @@ export default function ExpensesPage() {
               return (
                 <div key={m.id} className="flex items-center justify-between text-xs font-bold">
                   <div className="flex items-center space-x-2">
-                    <img src={m.avatar_url} className="w-6 h-6 rounded-full object-cover" alt="" />
+                    <img src={m.avatar_url || "/placeholder-avatar.png"} className="w-6 h-6 rounded-full object-cover" alt={m.full_name || "Lid"} />
                     <span className="text-neutral-800">{m.full_name}</span>
                   </div>
                   <span className={bal > 0 ? "text-green-500" : bal < 0 ? "text-red-500" : "text-neutral-400"}>
@@ -269,7 +276,7 @@ export default function ExpensesPage() {
                     <p className="text-[10px] text-neutral-400 font-bold mt-0.5">Betaald door {payer ? payer.full_name : "Onbekend"}</p>
                   </div>
                   <span className="text-xs font-black text-neutral-950 bg-neutral-50 px-2.5 py-1.5 rounded-xl border border-neutral-100">
-                    €{parseFloat(exp.amount).toFixed(2)}
+                    €{Number(exp.amount).toFixed(2)}
                   </span>
                 </div>
               );

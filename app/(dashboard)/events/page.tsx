@@ -95,9 +95,17 @@ export default function EventsPage() {
   }
 
   useEffect(() => {
-    loadEventsAndMembers();
+    // Haalt de initiële aanroep uit de synchrone render-cyclus
+    const timer = setTimeout(() => {
+      loadEventsAndMembers();
+    }, 0);
+
     window.addEventListener("groupChanged", loadEventsAndMembers);
-    return () => window.removeEventListener("groupChanged", loadEventsAndMembers);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("groupChanged", loadEventsAndMembers);
+    };
   }, []);
 
   const getFilteredEvents = () => {
@@ -249,7 +257,7 @@ export default function EventsPage() {
           <p className="text-xs font-bold text-neutral-400">Geen geplande activiteiten voor dit tijdsbestek.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-neutral-100 bg-neutral-100 gap-[1px] overflow-hidden rounded-xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-neutral-100 bg-neutral-100 gap-px overflow-hidden rounded-xl">
           {filteredEvents.map((event) => {
             const isAttending = event.attendees?.includes(userId);
             const isTrip = event.event_type === "trip";
@@ -396,7 +404,7 @@ export default function EventsPage() {
 
       {/* CREATIE MODAL */}
       {showCreateSheet && (
-        <div className="fixed inset-0 z-[999] bg-black/20 backdrop-blur-xl flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-999 bg-black/20 backdrop-blur-xl flex items-end sm:items-center justify-center">
           <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
               <h2 className="text-xs font-black text-neutral-900">Nieuw event toevoegen</h2>

@@ -88,9 +88,12 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => {
-    loadNotifications();
+    const timer = setTimeout(() => {
+      loadNotifications();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
-
+  
   // Actie: Accepteer lid in de groep
   async function handleAction(requestId: string, approve: boolean, userName: string, groupName: string) {
     try {
