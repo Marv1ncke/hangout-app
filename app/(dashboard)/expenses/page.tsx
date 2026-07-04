@@ -146,6 +146,7 @@ export default function ExpensesPage() {
     };
 
     window.addEventListener("groupChanged", handleGroupChange);
+    
     return () => window.removeEventListener("groupChanged", handleGroupChange);
   }, [loadExpensesData]);
 

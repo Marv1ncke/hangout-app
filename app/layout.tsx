@@ -32,6 +32,15 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  
+  // Voegt de badge (het meldingen-bolletje) toe op het startscherm bij het laden van de app
+  React.useEffect(() => {
+    if (typeof navigator !== "undefined" && "setAppBadge" in navigator) {
+      // Zet het getal op 3 (kun je later dynamisch maken via je database/state)
+      navigator.setAppBadge(3).catch((err) => console.error("Badge error:", err));
+    }
+  }, []);
+
   return (
     <html lang="en" className="antialiased">
       <body className="bg-neutral-50/50 text-neutral-900">

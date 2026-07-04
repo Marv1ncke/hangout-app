@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
+import HapticButton from "@/components/HapticButton";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -202,13 +203,13 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <button
+          <HapticButton
             type="submit"
             disabled={saving || uploading}
             className="w-full rounded-xl bg-black px-4 py-3 text-white text-sm font-medium disabled:opacity-40 transition-all hover:bg-neutral-800"
           >
             {saving ? "Saving changes..." : "Save"}
-          </button>
+          </HapticButton>
         </form>
 
         <div className="pt-4 border-t border-neutral-100">
