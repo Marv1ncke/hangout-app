@@ -5,8 +5,8 @@ import NavigationLayout from "@/components/NavigationLayout";
 import InstallBanner from "@/components/InstallBanner";
 import AppBadgeRegistry from "@/components/AppBadgeRegistry";
 import PushNotificationRegistry from "@/components/PushNotificationRegistry";
+import AppRegistry from "@/components/AppRegistry"; // <-- RECHTSALEEF GEÏMPORTEERD
 import "./globals.css";
-
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -30,6 +30,7 @@ export const metadata: Metadata = {
     ],
   },
 };
+
 export default function RootLayout({
   children,
 }: {
@@ -37,6 +38,7 @@ export default function RootLayout({
 }) {
   return (
     <ViewTransitions>
+      <AppRegistry /> {/* <-- BOEM! HIER ACTIVEERT HIJ NU DIRECT */}
       <html lang="en" className="antialiased">
         <body className="bg-neutral-50/50 text-neutral-900">
           <NavigationLayout>

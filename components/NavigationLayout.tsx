@@ -110,8 +110,8 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   return (
     <div className="min-h-screen bg-white text-neutral-900 antialiased selection:bg-neutral-100 flex flex-col md:flex-row">
       
-      {/* 📱 NATIVE SOCIAL MOBILE TOP BAR */}
-      <header className="sticky top-0 z-50 flex h-14 items-center justify-between bg-white/80 px-4 backdrop-blur-md md:hidden border-b border-neutral-100/60 select-none">
+      {/* 📱 NATIVE SOCIAL MOBILE TOP BAR WITH BLUR & SAFE ZONE TOP */}
+      <header className="native-header flex h-14 items-center justify-between px-4 md:hidden select-none">
         <button 
           onClick={() => setShowGroupSelector(!showGroupSelector)} 
           className="flex items-center space-x-1.5 active:scale-95 transition"
@@ -193,8 +193,8 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         </div>
       </main>
 
-      {/* 📱 NATIVE SOCIAL MOBILE BOTTOM NAVIGATION BAR */}
-      <nav className="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-md border-t border-neutral-100 h-16 flex items-center justify-around px-2 z-40 md:hidden select-none">
+      {/* 📱 NATIVE SOCIAL MOBILE BOTTOM NAVIGATION BAR WITH SAFE ZONE BOTTOM PROTECTION */}
+      <nav className="native-bottom-bar fixed bottom-0 inset-x-0 h-16 flex items-center justify-around px-2 z-40 md:hidden select-none">
         {navItems.map((item) => {
           const isActive = pathname === item.path;
           return (

@@ -1,46 +1,70 @@
-const CACHE_NAME = "hangout-cache-v1";
-const ASSETS_TO_CACHE = [
-  "/",
-  "/expenses",
-  "/globals.css",
-  "/manifest.json" // Mocht je een manifest hebben
-];
 
-// Installeer de cache wanneer de app start
+const CACHE_NAME = "hangout-cache-v2";
+
+// We cachen de core layout en Next.js build assets dynamisch zodra ze ingeladen worden
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
   self.skipWaiting();
 });
 
-// Activeer en ruim oude caches op
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key);
-        })
-      );
-    })
+    caches.keys().then((keys) => Promise.all(
+      keys.map((key) => { if (key !== CACHE_NAME) return caches.delete(key); })
+    ))
   );
   self.clients.claim();
 });
 
-// Cache First, Network Rollback strategie: laadt de app in 0.05s offline!
+// Stale-While-Revalidate: Start app binnen 0.05s met cache, ververs op de achtergrond
 self.addEventListener("fetch", (event) => {
-  // Sla POST requests en database calls over (die moeten live)
   if (event.request.method !== "GET" || event.request.url.includes("/rest/v1/")) return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-      return fetch(event.request);
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.match(event.request).then((cachedResponse) => {
+        const fetchedResponse = fetch(event.request).then((networkResponse) => {
+          if (networkResponse.status === 200) {
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        }).catch(() => cachedResponse); // Offline fallback
+
+        return cachedResponse || fetchedResponse;
+      });
     })
   );
 });
 
-// ... HIERONDER STAAT JE BESTAANDE 'PUSH' EN 'NOTIFICATIONCLICK' LOGICA VAN STAP 1 ...
+// Periodic Background Sync: Update data geruisloos (Bespaart free-tier database requests!)
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === "sync-expenses") {
+    event.waitUntil(
+      fetch("/api/sync-cache-background").catch((err) => console.log("Background sync failed", err))
+    );
+  }
+});
+
+// ... HIER STAAT JE BESTAANDE WEB-PUSH NOTIFICATIE LOGICA VAN DE API ROUTE ...
+
+self.addEventListener("push", (event) => {
+    const data = event.data ? event.data.json() : { title: "Nieuwe update", body: "Er is iets gebeurd!" };
+    
+    const options = {
+      body: data.body,
+      icon: "/path/to/icon-192x192.png", 
+      badge: "/path/to/icon-192x192.png",
+      vibrate: [100, 50, 100],
+      data: { url: data.url || "/" }
+    };
+  
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
+  });
+  
+  self.addEventListener("notificationclick", (event) => {
+    event.notification.close();
+    event.waitUntil(
+      clients.openWindow(event.notification.data.url)
+    );
+  });
