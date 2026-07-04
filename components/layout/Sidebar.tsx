@@ -14,7 +14,7 @@ const nav = [
   { label: "Groepen", href: "/groups", icon: Users },
   { label: "Kalender", href: "/events", icon: Calendar },
   { label: "Beschikbaarheid", href: "/availability", icon: Clock },
-  { label: "Meldingen", href: "/notifications", icon: Bell },
+  { label: "Meldingen", href: "/notifications", icon: Bell }, // <-- STAAT DEZE ER?
 ];
 
 type Group = {
