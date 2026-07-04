@@ -11,5 +11,5 @@ export default function AppBadgeRegistry() {
     }
   }, []);
 
-  return null; // Deze component rendert niks visieels, voert alleen de actie uit
+  return null; 
 }

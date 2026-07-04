@@ -2,7 +2,10 @@ import React from "react";
 import { Metadata, Viewport } from "next";
 import NavigationLayout from "@/components/NavigationLayout";
 import InstallBanner from "@/components/InstallBanner";
+import AppBadgeRegistry from "@/components/AppBadgeRegistry";
+import PushNotificationRegistry from "@/components/PushNotificationRegistry";
 import "./globals.css";
+
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -27,8 +30,6 @@ export const metadata: Metadata = {
   },
 };
 
-import AppBadgeRegistry from "@/components/AppBadgeRegistry";
-
 export default function RootLayout({
   children,
 }: {
@@ -40,7 +41,8 @@ export default function RootLayout({
         <NavigationLayout>
           {children}
           <InstallBanner />
-          <AppBadgeRegistry /> {/* <-- Veilig uitgevoerd aan de client-kant */}
+          <AppBadgeRegistry />
+          <PushNotificationRegistry/>
         </NavigationLayout>
       </body>
     </html>
