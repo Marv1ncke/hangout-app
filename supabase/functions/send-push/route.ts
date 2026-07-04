@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import webpush from "web-push";
+import * as webpush from "web-push";
 
 const VAPID_PUBLIC_KEY = "BKvey2M6TzhvKHtQ3YVU3YUAPBooy_NWLBPIk9L-YQamVKmokKg6p8pOzrpeuzQ0ZVyCeepsfAgStLUpmeWs8Cc";
 const VAPID_PRIVATE_KEY = "FEX0n9MVDbEOxNIFWm5QvKhpjj-HxazMQ5ayVnOe-iU";
