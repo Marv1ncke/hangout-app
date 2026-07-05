@@ -18,13 +18,13 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "Hangout",
-  description: "Jouw hangout app",
-  manifest: "public/manifest.webmanifest", // Zorg dat dit naar je PWA manifest verwijst
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Kosten Pot",
+    title: "Hangout", /* <-- Dit dwingt de tekst onder het thuisscherm-icoon af */
+    statusBarStyle: "default",
   },
+  description: "Jouw hangout app",
+  manifest: "public/manifest.webmanifest", // Zorg dat dit naar je PWA manifest verwijst
 };
 
 export default function RootLayout({
