@@ -25,8 +25,8 @@ export default function Icon() {
             fontWeight: 900,
             /* ⚡ DE GLOW HACK: Meerdere lagen schaduw voor een intens neon-effect */
             textShadow: `
-              0 0 20px rgba(99, 102, 241, 0.8),  /* Indigo glow */
-              0 0 40px rgba(168, 85, 247, 0.6),  /* Paarse glow */
+              0 0 20px rgba(99, 102, 241, 0.8),  
+              0 0 40px rgba(168, 85, 247, 0.6),  
               0 0 60px rgba(168, 85, 247, 0.4)
             `,
           }}
