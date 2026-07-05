@@ -9,22 +9,26 @@ import { AppProviders } from "../components/providers/AppProviders";
 import AppRegistry from "../components/AppRegistry";
 import "./globals.css";
 
+// 📱 Forceert iOS om de app-schaal te locken en voorkomt dat gebruikers per ongeluk in-zoomen
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover", // Zorgt dat de app onder de notch/Dynamic Island doorloopt
+  themeColor: "#000000",
 };
 
 export const metadata: Metadata = {
   title: "Hangout",
-  appleWebApp: {
-    capable: true,
-    title: "Hangout", /* <-- Dit dwingt de tekst onder het thuisscherm-icoon af */
-    statusBarStyle: "default",
-  },
   description: "Jouw hangout app",
-  manifest: "public/manifest.webmanifest", // Zorg dat dit naar je PWA manifest verwijst
+  // ⚡ GEFIXT: "public/" weggehaald, Next.js zoekt automatisch in de public map vanaf de root
+  manifest: "/manifest.webmanifest", 
+  appleWebApp: {
+    capable: true, // HIERMEE BLIJF JE IN DE APP EN GA JE NIET NAAR SAFARI
+    title: "Hangout", // Dwingt de app-naam af op het thuisscherm
+    statusBarStyle: "black-translucent", // Naadloze zwarte statusbalk integratie
+  },
 };
 
 export default function RootLayout({
@@ -35,7 +39,16 @@ export default function RootLayout({
   return (
     <ViewTransitions>
       <html lang="en" className="antialiased">
-        <body className="bg-neutral-50/50 text-neutral-900">
+        <head>
+          {/* 🛑 DE HEILIGE DRIE-EENHEID VOOR MAXIMALE APPLE NATIVE VIBE */}
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+          <meta name="apple-mobile-web-app-title" content="Hangout" />
+          
+          {/* Voorkomt dat iOS links buiten de PWA opent in Safari */}
+          <meta name="mobile-web-app-capable" content="yes" />
+        </head>
+        <body className="bg-neutral-50/50 text-neutral-900 overflow-x-hidden antialiased">
           <AppProviders>
             <AppRegistry />
             <NavigationLayout>
