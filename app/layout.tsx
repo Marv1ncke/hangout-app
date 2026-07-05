@@ -17,8 +17,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Kosten Pot | Hangout Planner",
-  description: "A sleek workspace for your friend group.",
+  title: "Hangout",
+  description: "Jouw hangout app",
+  manifest: "public/manifest.webmanifest", // Zorg dat dit naar je PWA manifest verwijst
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
