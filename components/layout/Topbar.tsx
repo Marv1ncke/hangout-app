@@ -12,9 +12,9 @@ export function Topbar() {
       <div className="text-sm font-medium">Your Workspace</div>
 
       <Button size="sm" onClick={() => openModal()} className="gap-2">
-  <Plus size={16} />
-  New Hangout
-</Button>
+        <Plus size={16} />
+        New Hangout
+      </Button>
     </header>
   );
 }

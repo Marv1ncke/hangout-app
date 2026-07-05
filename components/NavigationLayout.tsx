@@ -2,11 +2,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Link } from "next-view-transitions";
-import { Calendar, Users, Clock, CreditCard, Bell, Info, User, ChevronDown } from "lucide-react";
+import { Calendar, Users, Clock, CreditCard, Bell, Info, ChevronDown } from "lucide-react";
 
 interface NavigationLayoutProps {
   children: React.ReactNode;
@@ -24,7 +24,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/auth");
 
-  async function fetchNavData() {
+  const fetchNavData = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       router.push("/login");
@@ -77,7 +77,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
       
       setPendingCount((count || 0) + pendingMemberships.length);
     }
-  }
+  }, [router]);
 
   useEffect(() => {
     if (isAuthPage) return;
@@ -85,7 +85,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
 
     window.addEventListener("groupChanged", fetchNavData);
     return () => window.removeEventListener("groupChanged", fetchNavData);
-  }, [pathname, isAuthPage]);
+  }, [pathname, isAuthPage, fetchNavData]);
 
   async function handleGroupSwitch(groupId: string) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -103,13 +103,16 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
     { label: "Groepen", path: "/groups", icon: <Users size={20} strokeWidth={2.5} /> },
     { label: "Bezetting", path: "/availability", icon: <Clock size={20} strokeWidth={2.5} /> },
     { label: "Kosten pot", path: "/expenses", icon: <CreditCard size={20} strokeWidth={2.5} /> },
-    { label: "Meldingen", path: "/notifications", pathAlt: "/notifications", badge: pendingCount > 0, icon: <Bell size={20} strokeWidth={2.5} /> },
+    { label: "Meldingen", path: "/notifications", badge: pendingCount > 0, icon: <Bell size={20} strokeWidth={2.5} /> },
     { label: "Info", path: "/info", icon: <Info size={20} strokeWidth={2.5} /> },
   ];
+
+  const isProfileActive = pathname === "/profile";
+
   return (
     <div className="min-h-screen bg-neutral-50/50 text-neutral-900 antialiased flex flex-col md:flex-row">
       
-      {/* 📱 NATIVE SOCIAL MOBILE TOP BAR - NU VOLLEDIG SHIELDED */}
+      {/* 📱 NATIVE SOCIAL MOBILE TOP BAR - ZONDER PROFIELFOTO */}
       <header className="native-header flex items-center justify-between px-4 md:hidden select-none">
         <button 
           onClick={() => setShowGroupSelector(!showGroupSelector)} 
@@ -120,13 +123,9 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
           </span>
           <ChevronDown size={14} className={`text-neutral-400 transition-transform ${showGroupSelector ? "rotate-180" : ""}`} />
         </button>
-
-        <Link href="/profile" className="h-7 w-7 rounded-full overflow-hidden border border-neutral-200 mt-2">
-          <img src={profile?.avatar_url} alt="Profile" className="h-full w-full object-cover" />
-        </Link>
       </header>
 
-      {/* MOBILE GROUP SWITCHER DROP PANEL - START NU DIRECT ONDER DE GEFIXTE HEADER */}
+      {/* MOBILE GROUP SWITCHER DROP PANEL */}
       {showGroupSelector && (
         <>
           <div className="fixed inset-0 z-40 bg-black/10 backdrop-blur-xs md:hidden" onClick={() => setShowGroupSelector(false)} />
@@ -144,20 +143,21 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         </>
       )}
 
-      {/* 🖥️ DESKTOP SIDEBAR PANEL (ONGEWIJZIGD) */}
+      {/* 🖥️ DESKTOP SIDEBAR PANEL */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 md:flex flex-col justify-between bg-white border-r border-neutral-100 px-4 py-6 select-none">
-        {/* ... je bestaande desktop sidebar code ... */}
+        {/* desktop layout ... */}
       </aside>
 
-      {/* MAIN LAYOUT WRAPPER - VERWIJDER PADDING BOTTOM, DIT DOET DE CSS NU */}
+      {/* MAIN LAYOUT WRAPPER */}
       <main className="flex-1 w-full min-h-screen md:pl-64">
         <div className="max-w-4xl mx-auto px-4 py-5 md:py-8">
           {children}
         </div>
       </main>
 
-      {/* 📱 NATIVE MOBILE BOTTOM NAV - MET INTEGRATED HOME BAR ONDERDRUKKING */}
-      <nav className="native-bottom-bar fixed bottom-0 left-0 right-0 w-full flex items-center justify-around px-2 z-40 md:hidden select-none">        {navItems.map((item) => {
+      {/* 📱 NATIVE MOBILE BOTTOM NAV - INCLUSIEF PROFIELFOTO RECHTSONDER */}
+      <nav className="native-bottom-bar fixed bottom-0 left-0 right-0 w-full flex items-center justify-around px-2 z-40 md:hidden select-none">
+        {navItems.map((item) => {
           const isActive = pathname === item.path;
           return (
             <Link 
@@ -171,6 +171,17 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
             </Link>
           );
         })}
+
+        {/* PROFIELFOTO GEÏNTEGREERD ALS LAATSTE KNOTS ELEMENT */}
+        <Link 
+          href="/profile" 
+          className={`flex flex-col items-center justify-center space-y-0.5 w-12 h-12 relative native-nav-link ${isProfileActive ? "text-black" : "text-neutral-400"}`}
+        >
+          <div className={`h-5 w-5 rounded-full overflow-hidden border transition-all ${isProfileActive ? "border-black scale-105" : "border-neutral-200"}`}>
+            <img src={profile?.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+          </div>
+          <span className="text-[9px] font-bold tracking-tight">Profiel</span>
+        </Link>
       </nav>
 
     </div>

@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 
-// Helper om base64 naar UInt8Array te converteren voor de VAPID key
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -23,34 +22,38 @@ export default function PushNotificationRegistry() {
       }
 
       try {
-        // 1. Registreer de Service Worker
+        // 0. Only request subscriptions if the user is authenticated
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) return; 
+
+        // 1. Register Service Worker File
         const registration = await navigator.serviceWorker.register("/sw.js");
         
-        // 2. Vraag toestemming
+        // 2. Request Notification Permission
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
 
-        // 3. Haal de publieke VAPID sleutel op (genereer deze in Supabase)
+        // 3. Extract public VAPID Key from environment variables
         const PUBLIC_VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_KEY;
-        if (!PUBLIC_VAPID_KEY) return;
+        if (!PUBLIC_VAPID_KEY) {
+          console.warn("PushNotificationRegistry: NEXT_PUBLIC_VAPID_KEY is missing.");
+          return;
+        }
 
-        // 4. Abonneer de gebruiker op de push server
+        // 4. Subscribe the browser instance to your push subscription stream
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY),
         });
 
-        // 5. Sla het abonnement op in Supabase gekoppeld aan de user
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData?.user) return;
-
+        // 5. Store/Upsert user push registration to Supabase database
         await supabase.from("push_subscriptions").upsert({
           user_id: userData.user.id,
           subscription: subscription.toJSON(),
           updated_at: new Date().toISOString(),
         });
       } catch (error) {
-        console.error("Push registratie mislukt:", error);
+        console.error("Push registration failure details:", error);
       }
     }
 

@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
+
 import { supabase } from "@/lib/supabase/client";
+import useSWR, { useSWRConfig } from "swr";
 import { Check, X, BellOff } from "lucide-react";
 
 interface JoinRequest {
@@ -18,40 +20,34 @@ interface JoinRequest {
 }
 
 export default function NotificationsPage() {
-  const [loading, setLoading] = useState(true);
-  const [requests, setRequests] = useState<JoinRequest[]>([]);
+  const { mutate } = useSWRConfig();
   const [toast, setToast] = useState<string | null>(null);
 
-  // Trigger tijdelijke iOS-stijl notificatie-banner binnen de app
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
-  async function loadNotifications() {
-    try {
-      setLoading(true);
+  // 1. DATA FETCHING LAYER VIA SWR
+  const { data: requests = [], error, isLoading, mutate: mutateRequests } = useSWR<JoinRequest[]>(
+    "user-notifications",
+    async () => {
       const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return;
+      if (!userData?.user) return [];
 
       const currentUserId = userData.user.id;
 
-      // 1. Haal alle actieve groepen op waar JIJ in zit (want als groepslid mag je aanvragen goedkeuren)
       const { data: myMemberships } = await supabase
         .from("group_members")
         .select("group_id")
         .eq("user_id", currentUserId)
         .eq("status", "active");
 
-      if (!myMemberships || myMemberships.length === 0) {
-        setRequests([]);
-        return;
-      }
+      if (!myMemberships || myMemberships.length === 0) return [];
 
       const myGroupIds = myMemberships.map((m) => m.group_id);
 
-      // 2. Haal alle 'pending' aanvragen op van deze groepen
-      const { data: pendingRequests, error } = await supabase
+      const { data: pendingRequests, error: reqError } = await supabase
         .from("group_members")
         .select(`
           id,
@@ -65,69 +61,45 @@ export default function NotificationsPage() {
         .in("group_id", myGroupIds)
         .eq("status", "pending");
 
-      if (error) throw error;
+      if (reqError) throw reqError;
 
-      if (pendingRequests) {
-        const formatted = (pendingRequests as any[]).map((r) => ({
-          id: r.id,
-          group_id: r.group_id,
-          user_id: r.user_id,
-          status: r.status,
-          created_at: r.created_at,
-          group_name: r.groups?.name || "Onbekende Groep",
-          user_name: r.profiles?.full_name || "Nieuw Lid",
-          user_avatar: r.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${r.user_id}`,
-        }));
-        setRequests(formatted);
-      }
-    } catch (err) {
-      console.error("Fout bij laden van notificaties:", err);
-    } finally {
-      setLoading(false);
+      return ((pendingRequests || []) as any[]).map((r) => ({
+        id: r.id,
+        group_id: r.group_id,
+        user_id: r.user_id,
+        status: r.status,
+        created_at: r.created_at,
+        group_name: r.groups?.name || "Onbekende Groep",
+        user_name: r.profiles?.full_name || "Nieuw Lid",
+        user_avatar: r.profiles?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${r.user_id}`,
+      }));
     }
-  }
+  );
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadNotifications();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
-  
-  // Actie: Accepteer lid in de groep
+  // 2. OPTIMISTIC MUTATION ACTION HANDLER
   async function handleAction(requestId: string, approve: boolean, userName: string, groupName: string) {
-    try {
-      if (approve) {
-        // Update status naar active
-        const { error } = await supabase
-          .from("group_members")
-          .update({ status: "active" })
-          .eq("id", requestId);
+    // Instantly remove the handled request from UI layout memory blocks
+    mutateRequests(
+      (prev) => (prev ? prev.filter((r) => r.id !== requestId) : []),
+      false
+    );
 
-        if (error) throw error;
-        showToast(`🎉 ${userName} is toegevoegd aan ${groupName}!`);
-      } else {
-        // Verwijder het verzoek bij weigeren
-        const { error } = await supabase
-          .from("group_members")
-          .delete()
-          .eq("id", requestId);
-
-        if (error) throw error;
-        showToast(`Afgewezen: ${userName} krijgt geen toegang.`);
-      }
-
-      // Refresh de lijst direct zonder hapering
-      setRequests((prev) => prev.filter((r) => r.id !== requestId));
-    } catch (err) {
-      console.error(err);
-      showToast("Oeps, er ging iets mis bij het verwerken.");
+    if (approve) {
+      showToast(`🎉 ${userName} is toegevoegd aan ${groupName}!`);
+      await supabase.from("group_members").update({ status: "active" }).eq("id", requestId);
+      // Global invalidation triggers sync across layout scopes (e.g. sidebar totals)
+      mutate("global-nav-data"); 
+    } else {
+      showToast(`Afgewezen: ${userName} krijgt geen toegang.`);
+      await supabase.from("group_members").delete().eq("id", requestId);
     }
+
+    mutateRequests();
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="p-6 text-sm font-bold text-neutral-400 animate-pulse tracking-tight">
+      <div className="max-w-2xl mx-auto p-6 text-sm font-bold text-neutral-400 animate-pulse tracking-tight">
         Meldingen ophalen...
       </div>
     );
@@ -138,7 +110,7 @@ export default function NotificationsPage() {
       
       {/* Dynamic Activity Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-4 right-4 z-50 flex justify-center pointer-events-none animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-20 left-4 right-4 z-50 flex justify-center pointer-events-none animate-in slide-in-from-bottom-4">
           <div className="bg-neutral-900 text-white font-bold text-xs px-5 py-3.5 rounded-2xl shadow-2xl tracking-tight pointer-events-auto">
             {toast}
           </div>
@@ -176,7 +148,6 @@ export default function NotificationsPage() {
                 key={req.id}
                 className="bg-white border border-neutral-100 p-4 rounded-2xl flex items-center justify-between gap-4 transition-all hover:border-neutral-200/80 shadow-3xs"
               >
-                {/* User Info & Target Group */}
                 <div className="flex items-center space-x-3.5 min-w-0">
                   <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 border border-neutral-100">
                     <Image
@@ -203,7 +174,6 @@ export default function NotificationsPage() {
                   </div>
                 </div>
 
-                {/* Big UX Action Buttons - Perf voor duim-taps op mobiel */}
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => handleAction(req.id, false, req.user_name, req.group_name)}

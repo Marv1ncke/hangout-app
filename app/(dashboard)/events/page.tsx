@@ -2,30 +2,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { useNavData } from "../../../hooks/useNavData";
+import { useEventsData } from "@/hooks/usePwaData";
 import { Plus, ShoppingBag, Heart, ArrowRight, Navigation, X, MapPin } from "lucide-react";
 
 type ViewType = "day" | "week" | "month" | "6month";
 
 export default function EventsPage() {
-  const [loading, setLoading] = useState(true);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string>("");
-  const [events, setEvents] = useState<any[]>([]);
-  const [groupProfiles, setGroupProfiles] = useState<{ [key: string]: any }>({});
+  // 1. READ FROM THE INVISIBLE GLOBAL STORE INSTANTLY ($0ms)
+  const { data: navData } = useNavData();
+  const activeGroupId = (navData as any)?.activeGroup?.id;
+  const userId = (navData as any)?.profile?.id || "";
+
+  // 2. CONNECT ACTIVE SYNCED CACHE
+  const { events, groupProfiles, mutate: mutateEvents } = useEventsData(activeGroupId);
   
+  // 3. KEEP YOUR PERFECT LOCAL FORM STATES
   const [currentView, setCurrentView] = useState<ViewType>("month");
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   
-  // Form States (Creatie)
   const [eventType, setEventType] = useState<"hangout" | "trip">("hangout");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [hasEndTime, setHasEndTime] = useState(false);
-  const [endTime, setEndTime] = useState(""); // Bevat nu volledige ISO datetime-local string (datum + tijd)
-  const [locationAddress, setLocationAddress] = useState(""); // Verplicht Adres Veld
+  const [endTime, setEndTime] = useState(""); 
+  const [locationAddress, setLocationAddress] = useState(""); 
   const [endDate, setEndDate] = useState("");
   const [startLocation, setStartLocation] = useState("");
   const [endLocation, setEndLocation] = useState("");
@@ -33,128 +37,45 @@ export default function EventsPage() {
   const [stopInput, setStopInput] = useState("");
   const [stops, setStops] = useState<string[]>([]);
   
-  // Foutmelding State
   const [formError, setFormError] = useState<string | null>(null);
-  
-  // Dynamische Meeneemlijst in het Aanmaak-Formulier
   const [modalBringInput, setModalBringInput] = useState("");
   const [modalBringList, setModalBringList] = useState<string[]>([]);
-
-  // State voor het live toevoegen van items per event op de pagina zelf
   const [newEventItem, setNewEventItem] = useState<{ [eventId: string]: string }>({});
 
-  async function loadEventsAndMembers() {
-    setLoading(true);
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) return;
-    const currentUserId = userData.user.id;
-    setUserId(currentUserId);
-
-    const { data: profile } = await supabase.from("profiles").select("id, full_name, avatar_url, selected_group_id").eq("id", currentUserId).maybeSingle();
-    
-    // Zorg ervoor dat de data van de ingelogde persoon ALTIJD beschikbaar is in de profielenmap
-    const profilesMap: { [key: string]: any } = {};
-    if (profile) {
-      profilesMap[profile.id] = {
-        id: profile.id,
-        full_name: profile.full_name,
-        avatar_url: profile.avatar_url
-      };
-    }
-
-    if (!profile?.selected_group_id) {
-      setGroupProfiles(profilesMap);
-      setLoading(false);
-      return;
-    }
-    const groupId = profile.selected_group_id;
-    setActiveGroupId(groupId);
-
-    // Haal alle actieve groepsleden op
-    const { data: members } = await supabase
-      .from("group_members")
-      .select("user_id, profiles(id, full_name, avatar_url)")
-      .eq("group_id", groupId)
-      .eq("status", "active");
-
-    members?.forEach((m: any) => {
-      if (m.profiles) {
-        profilesMap[m.profiles.id] = m.profiles;
-      }
-    });
-    setGroupProfiles(profilesMap);
-
-    // Haal alle events op
-    const { data: eventsData } = await supabase
-      .from("events")
-      .select("*")
-      .eq("group_id", groupId);
-
-    setEvents(eventsData || []);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    // Haalt de initiële aanroep uit de synchrone render-cyclus
-    const timer = setTimeout(() => {
-      loadEventsAndMembers();
-    }, 0);
-
-    window.addEventListener("groupChanged", loadEventsAndMembers);
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("groupChanged", loadEventsAndMembers);
-    };
-  }, []);
-
-  const getFilteredEvents = () => {
+  // 4. MAP DATA LOCALLY (NO EXTRA DB QUERIES)
+  const filteredEvents = (() => {
     const now = new Date();
     const sorted = [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return sorted.filter(event => {
       const eventDate = new Date(event.date);
-      
-      if (currentView === "day") {
-        return eventDate.toDateString() === now.toDateString();
-      }
-      
+      if (currentView === "day") return eventDate.toDateString() === now.toDateString();
       if (currentView === "week") {
         const currentDay = now.getDay();
         const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
         const monday = new Date(now);
         monday.setDate(now.getDate() - distanceToMonday);
         monday.setHours(0,0,0,0);
-
         const sunday = new Date(monday);
         sunday.setDate(monday.getDate() + 6);
         sunday.setHours(23,59,59,999);
-
         return eventDate >= monday && eventDate <= sunday;
       }
-
-      if (currentView === "month") {
-        return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
-      }
-
+      if (currentView === "month") return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
       if (currentView === "6month") {
         const sixMonthsFromNow = new Date(now);
         sixMonthsFromNow.setMonth(now.getMonth() + 6);
         return eventDate >= now && eventDate <= sixMonthsFromNow;
       }
-
       return true;
     });
-  };
-
-  const filteredEvents = getFilteredEvents();
+  })();
 
   const getDutchDayName = (dateStr: string) => {
     const days = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
     return days[new Date(dateStr).getDay()];
   };
 
-  // Helper om een datetime string mooi te formatteren (bv. 2026-07-04T23:00 -> 04/07 om 23:00)
   const formatEndDateTime = (dateTimeStr: string) => {
     try {
       const d = new Date(dateTimeStr);
@@ -169,15 +90,21 @@ export default function EventsPage() {
     }
   };
 
-  // Status: Gaan of Niet gaan
+  // 5. INSTANT PERCEPTION OPTIMISTIC MUTATIONS
   async function toggleAttendance(event: any) {
     const current = event.attendees || [];
     const updated = current.includes(userId) ? current.filter((id: string) => id !== userId) : [...current, userId];
+    
+    // UI updates instantly to the user
+    mutateEvents((old: any) => ({
+      ...old,
+      events: old.events.map((e: any) => e.id === event.id ? { ...e, attendees: updated } : e)
+    }), false);
+
     await supabase.from("events").update({ attendees: updated }).eq("id", event.id);
-    loadEventsAndMembers();
+    mutateEvents(); // Quiet background validation check
   }
 
-  // Multi-claim logica
   async function claimItem(event: any, itemIndex: number) {
     const currentName = groupProfiles[userId]?.full_name?.split(" ")[0] || "Lid";
     const updatedList = [...(event.bring_list || [])];
@@ -193,33 +120,42 @@ export default function EventsPage() {
     }
 
     const existingClaimIndex = targetItem.claims.findIndex((c: any) => c.user_id === userId);
-
     if (existingClaimIndex > -1) {
       targetItem.claims.splice(existingClaimIndex, 1);
     } else {
       targetItem.claims.push({ user_id: userId, name: currentName });
     }
 
+    // UI updates instantly to the user
+    mutateEvents((old: any) => ({
+      ...old,
+      events: old.events.map((e: any) => e.id === event.id ? { ...e, bring_list: updatedList } : e)
+    }), false);
+
     await supabase.from("events").update({ bring_list: updatedList }).eq("id", event.id);
-    loadEventsAndMembers();
+    mutateEvents();
   }
 
-  // Live vanaf kaart toevoegen
   async function addNewItemToExistingEvent(eventId: string) {
     const text = newEventItem[eventId];
     if (!text?.trim()) return;
-    const event = events.find(e => e.id === eventId);
+    const event = events.find((e: any) => e.id === eventId);
     if (!event) return;
 
     const currentList = event.bring_list || [];
     const updatedList = [...currentList, { item: text.trim(), claims: [] }];
 
-    await supabase.from("events").update({ bring_list: updatedList }).eq("id", eventId);
     setNewEventItem({ ...newEventItem, [eventId]: "" });
-    loadEventsAndMembers();
-  }
 
-  if (loading) return <div className="text-xs font-bold text-neutral-400">Minimalistische agenda opbouwen...</div>;
+    // UI updates instantly to the user
+    mutateEvents((old: any) => ({
+      ...old,
+      events: old.events.map((e: any) => e.id === eventId ? { ...e, bring_list: updatedList } : e)
+    }), false);
+
+    await supabase.from("events").update({ bring_list: updatedList }).eq("id", eventId);
+    mutateEvents();
+  }
 
   return (
     <div className="space-y-6 select-none animate-in fade-in">
@@ -283,14 +219,12 @@ export default function EventsPage() {
                   
                   <h3 className="text-base font-black tracking-tight text-neutral-900">{event.title}</h3>
                   
-                  {/* Tijdweergave met optioneel einduur (volledige datum + tijd) */}
                   {event.time && (
                     <p className="text-[11px] font-bold text-neutral-400">
                       🕒 Tijd: {event.time} {event.end_time ? `tot ${formatEndDateTime(event.end_time)}` : ""}
                     </p>
                   )}
                   
-                  {/* Adres weergave */}
                   {event.location_address && (
                     <div className="flex items-center gap-1 text-[11px] text-neutral-500 font-bold">
                       <MapPin size={11} className="text-neutral-400 shrink-0" />
@@ -298,7 +232,6 @@ export default function EventsPage() {
                     </div>
                   )}
                   
-                  {/* Dresscode Weergave */}
                   {event.dresscode && (
                     <p className="text-[10px] font-bold text-neutral-500 bg-neutral-50 px-2 py-1 rounded-md inline-block border border-neutral-200/40">
                       ✨ <b>Dresscode:</b> {event.dresscode}
@@ -422,7 +355,7 @@ export default function EventsPage() {
               <button type="button" onClick={() => { setEventType("trip"); setFormError(null); }} className={`py-1.5 rounded-lg text-xs font-bold transition ${eventType === "trip" ? "bg-white text-black shadow-3xs" : "text-neutral-500"}`}>✈️ Reis / Roadtrip</button>
             </div>
 
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               setFormError(null);
 
@@ -431,7 +364,6 @@ export default function EventsPage() {
                 return;
               }
 
-              // Harde validatie op locatie/adres
               if (!locationAddress.trim()) {
                 setFormError("Je bent verplicht een locatie/adres op te geven!");
                 return;
@@ -444,7 +376,7 @@ export default function EventsPage() {
                 event_type: eventType,
                 location_address: locationAddress.trim(),
                 bring_list: modalBringList.map(item => ({ item, claims: [] })),
-                attendees: [userId], // Maker staat er direct in
+                attendees: [userId], 
                 dresscode: dresscode.trim() || null
               };
 
@@ -458,21 +390,26 @@ export default function EventsPage() {
                 payload.intermediate_stops = stops;
               }
 
-              supabase.from("events").insert(payload).then(({ error }) => {
-                if (!error) {
-                  setShowCreateSheet(false); setTitle(""); setDate(""); setTime(""); setEndTime(""); setHasEndTime(false); setLocationAddress(""); setEndDate(""); setStartLocation(""); setEndLocation(""); setStops([]); setDresscode(""); setModalBringList([]);
-                  loadEventsAndMembers();
-                } else {
-                  setFormError("Er ging iets mis bij het opslaan: " + error.message);
-                }
-              });
+              // Optimistic Add to cache
+              const temporaryId = Math.random().toString();
+              mutateEvents((old: any) => ({
+                ...old,
+                events: [...old.events, { id: temporaryId, ...payload }]
+              }), false);
+
+              setShowCreateSheet(false); setTitle(""); setDate(""); setTime(""); setEndTime(""); setHasEndTime(false); setLocationAddress(""); setEndDate(""); setStartLocation(""); setEndLocation(""); setStops([]); setDresscode(""); setModalBringList([]);
+
+              const { error } = await supabase.from("events").insert(payload);
+              if (error) {
+                setFormError("Er ging iets mis bij het opslaan: " + error.message);
+              }
+              mutateEvents();
             }} className="space-y-3">
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Naam van activiteit</label>
                 <input type="text" placeholder={eventType === "hangout" ? "Barbecue, Thuisbieren, Clubs..." : "Roadtrip 2026..."} value={title} onChange={e => setTitle(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
               </div>
 
-              {/* VERPLICHT LOCATIE/ADRES VELD */}
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Locatie / Adres (Verplicht) *</label>
                 <input type="text" placeholder="bv. Café De Klomp, Dorpsstraat 12 of Gent-Sint-Pieters..." value={locationAddress} onChange={e => setLocationAddress(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none border-l-2 border-l-black" />
@@ -483,7 +420,6 @@ export default function EventsPage() {
                 <input type="text" placeholder="bv. Casual chic, Festival, All black..." value={dresscode} onChange={e => setDresscode(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
               </div>
 
-              {/* MEENEEMLIJST */}
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Meeneemlijst vooraf opstellen</label>
                 <div className="flex gap-2">
@@ -502,7 +438,6 @@ export default function EventsPage() {
                 )}
               </div>
 
-              {/* DATUM EN TIJDSTIPPEN */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">{eventType === "hangout" ? "Datum" : "Startdatum"}</label>
@@ -522,7 +457,6 @@ export default function EventsPage() {
                 )}
               </div>
 
-              {/* EINDTIJD TOGGLE (NÚ DUREN MET DATUM EN TIJD VOOR HANGOUTS) */}
               {eventType === "hangout" && (
                 <div className="bg-neutral-50 p-2.5 rounded-xl space-y-2 border border-neutral-100">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -545,7 +479,6 @@ export default function EventsPage() {
                 </div>
               )}
 
-              {/* REIS DETAILS */}
               {eventType === "trip" && (
                 <div className="space-y-2 border-t border-neutral-50 pt-2">
                   <div className="grid grid-cols-2 gap-2">

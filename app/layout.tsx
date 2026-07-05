@@ -4,9 +4,9 @@ import { ViewTransitions } from "next-view-transitions";
 import NavigationLayout from "@/components/NavigationLayout";
 import InstallBanner from "@/components/InstallBanner";
 import AppBadgeRegistry from "@/components/AppBadgeRegistry";
-import PushNotificationRegistry from "@/components/PushNotificationRegistry";
-import AppRegistry from "@/components/AppRegistry"; // <-- RECHTSALEEF GEÏMPORTEERD
-import SmoothScroll from "@/components/SmoothScroll";
+import PushNotificationRegistry from "@/components/providers/PushNotificationRegistry";
+import { AppProviders } from "../components/providers/AppProviders";
+import AppRegistry from "../components/AppRegistry";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -24,12 +24,6 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Kosten Pot",
   },
-  icons: {
-    apple: [
-      { url: "/path/to/icon-152x152.png", sizes: "152x152" },
-      { url: "/path/to/icon-192x192.png", sizes: "192x192" },
-    ],
-  },
 };
 
 export default function RootLayout({
@@ -39,15 +33,17 @@ export default function RootLayout({
 }) {
   return (
     <ViewTransitions>
-      <AppRegistry />
       <html lang="en" className="antialiased">
         <body className="bg-neutral-50/50 text-neutral-900">
-          <NavigationLayout>
-            {children}
-            <InstallBanner />
-            <AppBadgeRegistry />
-            <PushNotificationRegistry />
-          </NavigationLayout>
+          <AppProviders>
+            <AppRegistry />
+            <NavigationLayout>
+              {children}
+              <InstallBanner />
+              <AppBadgeRegistry />
+              <PushNotificationRegistry />
+            </NavigationLayout>
+          </AppProviders>
         </body>
       </html>
     </ViewTransitions>

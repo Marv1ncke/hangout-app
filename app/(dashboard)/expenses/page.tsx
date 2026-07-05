@@ -1,51 +1,57 @@
+/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { useNavData } from "../../../hooks/useNavData";
+import { useExpensesData } from "@/hooks/usePwaData";
 import { CreditCard, Plus, ArrowRight, CheckCircle2, Archive, UserPlus } from "lucide-react";
 import { triggerHaptic } from "@/lib/haptics";
 
 export default function ExpensesPage() {
-  const [loading, setLoading] = useState(true);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [groupMembers, setGroupMembers] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [userId, setUserId] = useState<string>("");
+  // 1. SYSTEM-WIDE COHERENT SHARED CACHE ACCESS
+  const { data: navData } = useNavData();
+  const activeGroupId = (navData as any)?.activeGroup?.id;
+  const userId = (navData as any)?.profile?.id || "";
 
-  // Form State
+  const { members: groupMembers, expenses, mutate: mutateExpenses } = useExpensesData(activeGroupId);
+
+  // 2. FORMS & UTILITY CONFIGURATION STATES
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [payerId, setPayerId] = useState("");
-
-  // Contact Picker Support State
+  const [payerId, setPayerId] = useState(userId || "");
   const [isContactPickerSupported, setIsContactPickerSupported] = useState(false);
 
-  // Wiskunde output
-  const [balances, setBalances] = useState<{ [key: string]: number }>({});
-  const [suggestedTransfers, setSuggestedTransfers] = useState<any[]>([]);
-
-  // Check support voor Contact Picker API (2026 Web Standaard)
+  // Keep native platform integration checking isolated
   useEffect(() => {
     if (typeof window !== "undefined" && "contacts" in navigator && "ContactsManager" in window) {
       setIsContactPickerSupported(true);
     }
   }, []);
 
-  const calculateSplitwise = useCallback((currentExpenses: any[], members: any[]) => {
-    if (members.length === 0) return;
+  // Sync state cleanly if defaults change during hot revalidation passes
+  useEffect(() => {
+    if (userId && !payerId) {
+      setPayerId(userId);
+    }
+  }, [userId, payerId]);
+
+  // 3. PURE MEMORY CALCULATIONS (0ms Re-renders, No Network Triggers)
+  const { balances, suggestedTransfers } = useMemo(() => {
+    if (groupMembers.length === 0) return { balances: {}, suggestedTransfers: [] };
 
     const netBalances: { [userId: string]: number } = {};
-    members.forEach(m => { netBalances[m.id] = 0; });
+    groupMembers.forEach((m: any) => { netBalances[m.id] = 0; });
 
-    currentExpenses.forEach(exp => {
+    expenses.forEach((exp: any) => {
       const totalAmount = parseFloat(exp.amount);
       const payer = exp.payer_id;
-      const share = totalAmount / members.length;
+      const share = totalAmount / groupMembers.length;
 
-      members.forEach(m => {
+      groupMembers.forEach((m: any) => {
         if (m.id === payer) {
           netBalances[m.id] += (totalAmount - share);
         } else {
@@ -54,13 +60,10 @@ export default function ExpensesPage() {
       });
     });
 
-    setBalances(netBalances);
-
-    // Optimalisatie-algoritme
     const debtors: { id: string; balance: number }[] = [];
     const creditors: { id: string; balance: number }[] = [];
 
-    Object.keys(netBalances).forEach(mId => {
+    Object.keys(netBalances).forEach((mId) => {
       const bal = netBalances[mId];
       if (bal < -0.01) debtors.push({ id: mId, balance: bal });
       else if (bal > 0.01) creditors.push({ id: mId, balance: bal });
@@ -72,16 +75,19 @@ export default function ExpensesPage() {
     const transfers: any[] = [];
     let i = 0, j = 0;
 
-    while (i < debtors.length && j < creditors.length) {
-      const debtor = debtors[i];
-      const creditor = creditors[j];
+    const debtorsClone = debtors.map((d) => ({ ...d }));
+    const creditorsClone = creditors.map((c) => ({ ...c }));
+
+    while (i < debtorsClone.length && j < creditorsClone.length) {
+      const debtor = debtorsClone[i];
+      const creditor = creditorsClone[j];
       const amountToPay = Math.min(Math.abs(debtor.balance), creditor.balance);
 
       if (amountToPay > 0.01) {
         transfers.push({
-          from: members.find(m => m.id === debtor.id),
-          to: members.find(m => m.id === creditor.id),
-          amount: amountToPay
+          from: groupMembers.find((m: any) => m.id === debtor.id),
+          to: groupMembers.find((m: any) => m.id === creditor.id),
+          amount: amountToPay,
         });
       }
 
@@ -91,109 +97,61 @@ export default function ExpensesPage() {
       if (Math.abs(debtor.balance) < 0.01) i++;
       if (creditor.balance < 0.01) j++;
     }
-    setSuggestedTransfers(transfers);
-  }, []);
 
-  const loadExpensesData = useCallback(async () => {
-    setLoading(true);
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) {
-      setLoading(false);
-      return;
-    }
-    setUserId(userData.user.id);
+    return { balances: netBalances, suggestedTransfers: transfers };
+  }, [expenses, groupMembers]);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("selected_group_id")
-      .eq("id", userData.user.id)
-      .maybeSingle();
-
-    if (!profile?.selected_group_id) {
-      setLoading(false);
-      return;
-    }
-    const groupId = profile.selected_group_id;
-    setActiveGroupId(groupId);
-
-    // 1. Haal de GEBRUIKERS van de actieve groep op voor de selector
-    const { data: members } = await supabase
-      .from("group_members")
-      .select("user_id, profiles(id, full_name, avatar_url)")
-      .eq("group_id", groupId)
-      .eq("status", "active");
-
-    const formattedMembers = members?.map((m: any) => m.profiles).filter(Boolean) || [];
-    setGroupMembers(formattedMembers);
-    
-    // Zet de standaard betaler naar de ingelogde user, mits aanwezig in de groep
-    if (formattedMembers.some(m => m.id === userData.user.id)) {
-      setPayerId(userData.user.id);
-    } else if (formattedMembers.length > 0) {
-      setPayerId(formattedMembers[0].id);
-    }
-
-    // 2. Haal UITSLUITEND actieve (niet-gearchiveerde) uitgaven op
-    const { data: expensesData } = await supabase
-      .from("expenses")
-      .select("*")
-      .eq("group_id", groupId)
-      .eq("is_archived", false)
-      .order("created_at", { ascending: false });
-
-    const currentExpenses = expensesData || [];
-    setExpenses(currentExpenses);
-
-    // 3. Wiskunde berekenen
-    calculateSplitwise(currentExpenses, formattedMembers);
-    setLoading(false);
-  }, [calculateSplitwise]);
-
-  useEffect(() => {
-    loadExpensesData();
-    
-    const handleGroupChange = () => {
-      loadExpensesData();
-    };
-
-    window.addEventListener("groupChanged", handleGroupChange);
-    
-    return () => window.removeEventListener("groupChanged", handleGroupChange);
-  }, [loadExpensesData]);
-
+  // 4. INSTANT ACTION OPTIMISTIC RECORD INJECTORS
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault();
     if (!description.trim() || !amount || !activeGroupId || !payerId) return;
 
-    const { error } = await supabase.from("expenses").insert({
+    const parsedAmount = parseFloat(amount);
+    const newLocalExpense = {
+      id: Math.random().toString(),
       group_id: activeGroupId,
       description: description.trim(),
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       payer_id: payerId,
-      is_archived: false
+      is_archived: false,
+      created_at: new Date().toISOString(),
+    };
+
+    // Update screen view immediately to zero latency
+    mutateExpenses(
+      (old: any) => ({
+        ...old,
+        expenses: [newLocalExpense, ...(old?.expenses || [])],
+      }),
+      false
+    );
+
+    setDescription("");
+    setAmount("");
+    setShowAddSheet(false);
+
+    await supabase.from("expenses").insert({
+      group_id: activeGroupId,
+      description: description.trim(),
+      amount: parsedAmount,
+      payer_id: payerId,
+      is_archived: false,
     });
 
-    if (!error) {
-      setDescription("");
-      setAmount("");
-      setShowAddSheet(false);
-      loadExpensesData();
-    }
+    mutateExpenses();
   }
 
-  // Native Contact Picker handler
   async function handlePickContact() {
     triggerHaptic(15);
-        try {
+    try {
       const props = ["name"];
       const options = { multiple: false };
       const contacts = await (navigator as any).contacts.select(props, options);
-      
+
       if (contacts && contacts.length > 0) {
         const pickedName = contacts[0].name?.[0];
         if (pickedName) {
-          // Zoek matching groepslid op basis van (gedeeltelijke) naam
-          const matchedMember = groupMembers.find(m => 
+          const matchedMember = groupMembers.find((m: any) =>
             m.full_name?.toLowerCase().includes(pickedName.toLowerCase())
           );
           if (matchedMember) {
@@ -208,21 +166,22 @@ export default function ExpensesPage() {
 
   async function archiveCurrentPot() {
     if (!activeGroupId || expenses.length === 0) return;
-    const confirmReset = confirm("Weet je zeker dat je de huidige pot wilt afrekenen? Alle huidige uitgaven worden gearchiveerd en de balansen gaan terug naar €0.00.");
+    const confirmReset = confirm(
+      "Weet je zeker dat je de huidige pot wilt afrekenen? Alle huidige uitgaven worden gearchiveerd en de balansen gaan terug naar €0.00."
+    );
     if (!confirmReset) return;
 
-    const { error } = await supabase
+    // Flush immediately from rendering loop
+    mutateExpenses((old: any) => ({ ...old, expenses: [] }), false);
+
+    await supabase
       .from("expenses")
       .update({ is_archived: true, archived_at: new Date().toISOString() })
       .eq("group_id", activeGroupId)
       .eq("is_archived", false);
 
-    if (!error) {
-      loadExpensesData();
-    }
+    mutateExpenses();
   }
-
-  if (loading) return <div className="text-xs font-bold text-neutral-400">Kostenpot berekenen...</div>;
 
   return (
     <div className="space-y-6 select-none animate-in fade-in">
@@ -233,7 +192,7 @@ export default function ExpensesPage() {
         </div>
         <div className="flex gap-2">
           {expenses.length > 0 && (
-            <button 
+            <button
               onClick={archiveCurrentPot}
               className="px-3 py-2 bg-neutral-100 text-neutral-700 text-xs font-bold rounded-xl active:scale-95 transition flex items-center gap-1.5"
               title="Afrekenen en met schone lei beginnen"
@@ -241,8 +200,11 @@ export default function ExpensesPage() {
               <Archive size={14} /> <span className="hidden sm:inline">Alles Afrekenen</span>
             </button>
           )}
-          <button 
-            onClick={() => { triggerHaptic(15); setShowAddSheet(true); }}
+          <button
+            onClick={() => {
+              triggerHaptic(15);
+              setShowAddSheet(true);
+            }}
             className="px-3.5 py-2 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition flex items-center gap-1"
           >
             <Plus size={14} /> Uitgave Toevoegen
@@ -255,12 +217,16 @@ export default function ExpensesPage() {
         <div className="bg-white border border-neutral-100 p-4 rounded-2xl space-y-3">
           <h3 className="text-[10px] font-extrabold uppercase text-neutral-400 tracking-wider">Huidige Maandbalans</h3>
           <div className="space-y-2">
-            {groupMembers.map((m) => {
+            {groupMembers.map((m: any) => {
               const bal = balances[m.id] || 0;
               return (
                 <div key={m.id} className="flex items-center justify-between text-xs font-bold">
                   <div className="flex items-center space-x-2">
-                    <img src={m.avatar_url || "/placeholder-avatar.png"} className="w-6 h-6 rounded-full object-cover" alt={m.full_name || "Lid"} />
+                    <img
+                      src={m.avatar_url || "/placeholder-avatar.png"}
+                      className="w-6 h-6 rounded-full object-cover"
+                      alt={m.full_name || "Lid"}
+                    />
                     <span className="text-neutral-800">{m.full_name}</span>
                   </div>
                   <span className={bal > 0 ? "text-green-500" : bal < 0 ? "text-red-500" : "text-neutral-400"}>
@@ -282,14 +248,21 @@ export default function ExpensesPage() {
             </div>
           ) : (
             <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-              {suggestedTransfers.map((t, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-white/5 border border-white/10 p-2.5 rounded-xl text-xs font-bold">
-                  <span className="truncate max-w-[90px] text-neutral-300">{t.from?.full_name?.split(" ")[0] || "Lid"}</span>
+              {suggestedTransfers.map((t: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between bg-white/5 border border-white/10 p-2.5 rounded-xl text-xs font-bold"
+                >
+                  <span className="truncate max-w-[90px] text-neutral-300">
+                    {t.from?.full_name?.split(" ")[0] || "Lid"}
+                  </span>
                   <div className="flex flex-col items-center mx-1 px-2 py-0.5 rounded bg-white/10 text-[9px] text-neutral-200 uppercase tracking-tight">
                     <span>betaalt €{t.amount.toFixed(2)}</span>
                     <ArrowRight size={10} className="mt-0.5" />
                   </div>
-                  <span className="truncate max-w-[90px] text-white text-right">{t.to?.full_name?.split(" ")[0] || "Lid"}</span>
+                  <span className="truncate max-w-[90px] text-white text-right">
+                    {t.to?.full_name?.split(" ")[0] || "Lid"}
+                  </span>
                 </div>
               ))}
             </div>
@@ -299,18 +272,27 @@ export default function ExpensesPage() {
 
       {/* GESCHIEDENIS */}
       <div className="space-y-2">
-        <h2 className="text-[10px] font-extrabold uppercase text-neutral-400 tracking-wider px-1">Lopende Uitgaven deze periode</h2>
+        <h2 className="text-[10px] font-extrabold uppercase text-neutral-400 tracking-wider px-1">
+          Lopende Uitgaven deze periode
+        </h2>
         {expenses.length === 0 ? (
-          <p className="text-xs font-bold text-neutral-400 p-8 bg-neutral-50 rounded-2xl border border-neutral-100 text-center">Geen openstaande kosten.</p>
+          <p className="text-xs font-bold text-neutral-400 p-8 bg-neutral-50 rounded-2xl border border-neutral-100 text-center">
+            Geen openstaande kosten.
+          </p>
         ) : (
           <div className="space-y-2">
-            {expenses.map((exp) => {
-              const payer = groupMembers.find(m => m.id === exp.payer_id);
+            {expenses.map((exp: any) => {
+              const payer = groupMembers.find((m: any) => m.id === exp.payer_id);
               return (
-                <div key={exp.id} className="flex items-center justify-between bg-white border border-neutral-100 p-3 rounded-xl shadow-3xs">
+                <div
+                  key={exp.id}
+                  className="flex items-center justify-between bg-white border border-neutral-100 p-3 rounded-xl shadow-3xs"
+                >
                   <div>
                     <p className="text-xs font-black text-neutral-900">{exp.description}</p>
-                    <p className="text-[10px] text-neutral-400 font-bold mt-0.5">Betaald door {payer ? payer.full_name : "Onbekend"}</p>
+                    <p className="text-[10px] text-neutral-400 font-bold mt-0.5">
+                      Betaald door {payer ? payer.full_name : "Onbekend"}
+                    </p>
                   </div>
                   <span className="text-xs font-black text-neutral-950 bg-neutral-50 px-2.5 py-1.5 rounded-xl border border-neutral-100">
                     €{Number(exp.amount).toFixed(2)}
@@ -328,32 +310,55 @@ export default function ExpensesPage() {
           <div className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
               <h2 className="text-xs font-black text-neutral-900">Uitgave toevoegen</h2>
-              <button onClick={() => setShowAddSheet(false)} className="text-xs font-bold text-neutral-400">Sluiten</button>
+              <button onClick={() => setShowAddSheet(false)} className="text-xs font-bold text-neutral-400">
+                Sluiten
+              </button>
             </div>
 
             <form onSubmit={handleAddExpense} className="space-y-3">
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Beschrijving</label>
-                <input type="text" placeholder="Gezamenlijke inkopen, Uber, ..." value={description} onChange={e => setDescription(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none font-bold" />
+                <input
+                  type="text"
+                  placeholder="Gezamenlijke inkopen, Uber, ..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  required
+                  className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none font-bold"
+                />
               </div>
 
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Totaal Bedrag (€)</label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-xs font-black text-neutral-400">€</span>
-                  <input type="number" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 pl-7 pr-4 p-2.5 rounded-xl text-xs outline-none font-black text-neutral-950" />
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                    className="w-full bg-neutral-50 border border-neutral-100 pl-7 pr-4 p-2.5 rounded-xl text-xs outline-none font-black text-neutral-950"
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Wie heeft betaald?</label>
                 <div className="relative flex items-center">
-                  <select value={payerId} onChange={e => setPayerId(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none font-bold text-neutral-800 pr-10 appearance-none">
-                    {groupMembers.map(m => (
-                      <option key={m.id} value={m.id}>{m.full_name}</option>
+                  <select
+                    value={payerId}
+                    onChange={(e) => setPayerId(e.target.value)}
+                    className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none font-bold text-neutral-800 pr-10 appearance-none"
+                  >
+                    {groupMembers.map((m: any) => (
+                      <option key={m.id} value={m.id}>
+                        {m.full_name}
+                      </option>
                     ))}
                   </select>
-                  
+
                   {isContactPickerSupported && (
                     <button
                       type="button"
@@ -367,7 +372,10 @@ export default function ExpensesPage() {
                 </div>
               </div>
 
-              <button type="submit" className="w-full bg-black text-white p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2">
+              <button
+                type="submit"
+                className="w-full bg-black text-white p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2"
+              >
                 Kosten splitsen 💸
               </button>
             </form>

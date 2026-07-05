@@ -1,12 +1,15 @@
+/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
+import { useNavData } from "../../../hooks/useNavData";
+import { mutate } from "swr";
 import { Check } from "lucide-react";
 
 interface Group {
@@ -24,11 +27,14 @@ interface GroupMemberDetail {
 }
 
 export default function GroupsPage() {
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState("");
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  
+  // 1. SYSTEM-WIDE COHERENT SHARED CACHE ACCESS
+  const { data: navData, mutate: mutateNav } = useNavData();
+  const activeGroupId = (navData as any)?.activeGroup?.id;
+  const userId = (navData as any)?.profile?.id || "";
+  const groups = (navData as any)?.groups || [];
+
+  const [isPending, startTransition] = useTransition();
+
   // Custom Dynamic Font State
   const [activeFont, setActiveFont] = useState("inherit");
   
@@ -51,95 +57,77 @@ export default function GroupsPage() {
   // Premium Instagram-Style Dynamic Toast
   const [toast, setToast] = useState<{ message: string; sub?: string } | null>(null);
 
-  const isMounted = useRef(true);
-
   const showNotification = (message: string, sub?: string) => {
     setToast({ message, sub });
     setTimeout(() => {
-      if (isMounted.current) setToast(null);
+      setToast(null);
     }, 3500);
   };
 
-  async function loadGroupsData() {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user || !isMounted.current) return;
-      
-      const currentUserId = userData.user.id;
-      setUserId(currentUserId);
-
+  // Keep theme/font syncing cleanly isolated
+  useEffect(() => {
+    if (typeof window !== "undefined") {
       const storedFont = localStorage.getItem("app-custom-font");
       if (storedFont) setActiveFont(storedFont);
-
-      // Haal de momenteel actieve groep op uit het profiel
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("selected_group_id")
-        .eq("id", currentUserId)
-        .maybeSingle();
-      
-      if (isMounted.current) {
-        setActiveGroupId(profile?.selected_group_id || null);
-      }
-
-      const { data: myMemberships } = await supabase
-        .from("group_members")
-        .select("group_id")
-        .eq("user_id", currentUserId)
-        .eq("status", "active");
-
-      if (myMemberships && myMemberships.length > 0 && isMounted.current) {
-        const groupIds = myMemberships.map(m => m.group_id);
-        const { data: groupsData } = await supabase
-          .from("groups")
-          .select("id, name, join_code, invite_code, is_protected")
-          .in("id", groupIds);
-        
-        if (groupsData && isMounted.current) {
-          setGroups(groupsData);
-        }
-      } else if (isMounted.current) {
-        setGroups([]);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      if (isMounted.current) setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    isMounted.current = true;
-    const timer = setTimeout(() => {
-      loadGroupsData();
-    }, 0);
-
-    window.addEventListener("groupChanged", loadGroupsData);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("groupChanged", loadGroupsData);
-    };
   }, []);
 
+  // 2. LIGHTNING-FAST WORKSPACE TOGGLER (OPTIMISTIC MUTATION)
   async function handleSelectActiveGroup(groupId: string) {
-    if (!userId) return;
-    setActiveGroupId(groupId);
-    await supabase.from("profiles").update({ selected_group_id: groupId }).eq("id", userId);
-    window.dispatchEvent(new Event("groupChanged"));
+    if (!userId || groupId === activeGroupId) return;
+
+    // Instantly modify layout memory block before hitting network
+    mutateNav(
+      (old: any) => ({
+        ...old,
+        activeGroup: old?.groups?.find((g: any) => g.id === groupId) || old?.activeGroup,
+        profile: old?.profile ? { ...old.profile, selected_group_id: groupId } : old?.profile,
+      }),
+      false
+    );
+
     showNotification("Werkruimte gewisseld! ✨");
+
+    await supabase.from("profiles").update({ selected_group_id: groupId }).eq("id", userId);
+    
+    // Globally prompt revalidation for keys depending on active group mutations
+    mutateNav();
+    mutate((key) => Array.isArray(key) && key.includes(groupId));
   }
 
   async function handleCreateGroup(e: React.FormEvent) {
     e.preventDefault();
-    if (!groupName.trim()) return;
+    if (!groupName.trim() || !userId) return;
 
     const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    const prospectiveGroup: Group = {
+      id: "temp-" + Math.random().toString(),
+      name: groupName.trim(),
+      join_code: generatedCode,
+      invite_code: generatedCode,
+      is_protected: isProtected
+    };
 
-    // 1. Maak de groep aan
+    // Optimistically push group into navigation block
+    mutateNav(
+      (old: any) => ({
+        ...old,
+        groups: [...(old?.groups || []), prospectiveGroup],
+        activeGroup: prospectiveGroup,
+      }),
+      false
+    );
+
+    showNotification("Groep aangemaakt! 🤝", `Code: ${generatedCode}`);
+    setGroupName("");
+    setIsProtected(false);
+    setShowCreateSheet(false);
+
     const { data: newGroup, error: groupError } = await supabase
       .from("groups")
       .insert({ 
-        name: groupName.trim(), 
+        name: prospectiveGroup.name, 
         join_code: generatedCode, 
         invite_code: generatedCode, 
         is_protected: isProtected,
@@ -150,32 +138,24 @@ export default function GroupsPage() {
 
     if (groupError) {
       showNotification("Fout bij aanmaken", groupError.message);
+      mutateNav();
       return;
     }
 
-    // 2. BUGFIX: Voeg de maker DIRECT toe met status 'active' in group_members zodat de ledentelling klopt
     await supabase.from("group_members").insert({
       group_id: newGroup.id,
       user_id: userId,
       status: "active"
     });
 
-    // 3. Zet deze groep direct als actieve geselecteerde groep in het profiel
     await supabase.from("profiles").update({ selected_group_id: newGroup.id }).eq("id", userId);
-
-    showNotification("Groep aangemaakt! 🤝", `Code: ${generatedCode}`);
-    setGroupName("");
-    setIsProtected(false);
-    setShowCreateSheet(false);
     
-    window.dispatchEvent(new Event("groupChanged"));
-    setLoading(true);
-    await loadGroupsData();
+    mutateNav();
   }
 
   async function handleJoinCodeSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!joinCodeInput.trim()) return;
+    if (!joinCodeInput.trim() || !userId) return;
 
     const { data: targetGroup, error: findError } = await supabase
       .from("groups")
@@ -202,14 +182,23 @@ export default function GroupsPage() {
       showNotification("Verzoek verzonden 📩", `Wacht tot leden van ${targetGroup.name} je accepteren.`);
     } else {
       showNotification("Groep toegevoegd! ✨", `Je bent nu lid van ${targetGroup.name}`);
+      
+      // Update local profile scope immediately if connection is open
+      mutateNav(
+        (old: any) => ({
+          ...old,
+          groups: [...(old?.groups || []), targetGroup],
+          activeGroup: targetGroup,
+        }),
+        false
+      );
+
       await supabase.from("profiles").update({ selected_group_id: targetGroup.id }).eq("id", userId);
-      window.dispatchEvent(new Event("groupChanged"));
     }
 
     setJoinCodeInput("");
     setShowJoinSheet(false);
-    setLoading(true);
-    await loadGroupsData();
+    mutateNav();
   }
   
   async function openMembersList(group: Group) {
@@ -240,17 +229,25 @@ export default function GroupsPage() {
     e.preventDefault();
     if (!selectedGroup || !editGroupNameInput.trim()) return;
 
-    const { error } = await supabase
+    // Local state projection updates instantly
+    mutateNav(
+      (old: any) => ({
+        ...old,
+        groups: old?.groups?.map((g: any) => g.id === selectedGroup.id ? { ...g, name: editGroupNameInput.trim() } : g) || [],
+        activeGroup: old?.activeGroup?.id === selectedGroup.id ? { ...old.activeGroup, name: editGroupNameInput.trim() } : old?.activeGroup
+      }),
+      false
+    );
+
+    showNotification("Groepsnaam bijgewerkt 📝");
+    setShowEditSheet(false);
+
+    await supabase
       .from("groups")
       .update({ name: editGroupNameInput.trim() })
       .eq("id", selectedGroup.id);
 
-    if (!error) {
-      showNotification("Groepsnaam bijgewerkt 📝");
-      setShowEditSheet(false);
-      window.dispatchEvent(new Event("groupChanged"));
-      await loadGroupsData();
-    }
+    mutateNav();
   }
 
   async function handleLeaveGroupTrigger(group: Group) {
@@ -269,6 +266,28 @@ export default function GroupsPage() {
   }
 
   async function executeLeave(groupId: string, deleteEntireGroup: boolean) {
+    // Optimistic slice tracking
+    mutateNav(
+      (old: any) => {
+        const remaining = old?.groups?.filter((g: any) => g.id !== groupId) || [];
+        return {
+          ...old,
+          groups: remaining,
+          activeGroup: old?.activeGroup?.id === groupId ? (remaining[0] || null) : old?.activeGroup
+        };
+      },
+      false
+    );
+
+    if (deleteEntireGroup) {
+      showNotification("Groep definitief verwijderd 🗑️");
+    } else {
+      showNotification("Groep verlaten 🚶‍♂️");
+    }
+
+    setShowDeleteConfirm(false);
+    setShowLeaveConfirmSheet(false);
+
     await supabase.from("group_members").delete().eq("group_id", groupId).eq("user_id", userId);
     await supabase.from("availability_slots").delete().eq("group_id", groupId).eq("user_id", userId);
 
@@ -277,19 +296,20 @@ export default function GroupsPage() {
       await supabase.from("availability_slots").delete().eq("group_id", groupId);
       await supabase.from("events").delete().eq("group_id", groupId);
       await supabase.from("groups").delete().eq("id", groupId);
-      showNotification("Groep definitief verwijderd 🗑️");
-    } else {
-      showNotification("Groep verlaten 🚶‍♂️");
     }
 
-    setShowDeleteConfirm(false);
-    setShowLeaveConfirmSheet(false);
-    window.dispatchEvent(new Event("groupChanged"));
-    setLoading(true);
-    await loadGroupsData();
-  }
+    // Set fallback active layout selection
+    // 1. Calculate a fallback group from your groups array safely
+const userGroups = (navData as any)?.groups || [];
+const remainingGroups = userGroups.filter((g: any) => g.id !== groupId);
+const nextFallbackId = remainingGroups[0]?.id || null;
 
-  if (loading) return <div className="p-6 text-sm text-neutral-400 font-medium">Groepen laden...</div>;
+// 2. Perform the database update with the calculated fallback variable
+await supabase
+  .from("profiles")
+  .update({ selected_group_id: nextFallbackId })
+  .eq("id", userId);
+  }
 
   return (
     <div style={{ fontFamily: activeFont }} className="space-y-8 relative min-h-screen pb-20 select-none animate-in fade-in">
@@ -329,7 +349,7 @@ export default function GroupsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {groups.map(g => {
+           {groups.map((g: any) => {
               const isActive = g.id === activeGroupId;
               return (
                 <div 

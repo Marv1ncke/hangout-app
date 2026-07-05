@@ -1,7 +1,6 @@
 "use client";
 
 import { Link } from "next-view-transitions";
-;
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -9,13 +8,12 @@ import { LayoutDashboard, Users, Calendar, Clock, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useGroup } from "@/components/state/useGroup";
 
-// Navigation met de nieuwe Meldingen pagina erbij
 const nav = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Groepen", href: "/groups", icon: Users },
   { label: "Kalender", href: "/events", icon: Calendar },
   { label: "Beschikbaarheid", href: "/availability", icon: Clock },
-  { label: "Meldingen", href: "/notifications", icon: Bell }, // <-- STAAT DEZE ER?
+  { label: "Meldingen", href: "/notifications", icon: Bell },
 ];
 
 type Group = {
@@ -40,7 +38,7 @@ export function Sidebar() {
         .from("group_members")
         .select("group_id")
         .eq("user_id", user.id)
-        .eq("status", "active"); // Alleen actieve groepen inladen
+        .eq("status", "active");
 
       const ids = (memberships || []).map((m) => m.group_id);
       if (!ids.length) return;
