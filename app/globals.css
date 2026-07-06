@@ -151,7 +151,6 @@ html, body {
   overscroll-behavior-y: none;
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
-
 }
 
 /* Zorg dat invoervelden ALTIJD typbaar zijn, ongeacht de standalone modus */
@@ -164,7 +163,7 @@ input, textarea, select, [contenteditable="true"] {
    NATIVE LAYOUT COMPONENTS (HEADER & BOTTOM BAR)
    ========================================================================== */
 .native-header {
-
+  position: fixed; /* Oplossing: position fixed toegevoegd */
   height: 64px;
   padding-top: env(safe-area-inset-top);
   box-sizing: content-box;
@@ -178,11 +177,12 @@ input, textarea, select, [contenteditable="true"] {
   align-items: center !important;
   background: var(--background) !important;
   border-bottom: 1px solid var(--border);
-    opacity: 1 !important;
+  opacity: 1 !important;
 }
 
 main {
-  padding-top: calc(env(safe-area-inset-top) + 0px) !important;
+  /* Oplossing: correcte padding-top rekening houdend met de 64px fixed header */
+  padding-top: calc(env(safe-area-inset-top) + 64px) !important;
   will-change: auto;
 }
 
@@ -193,7 +193,7 @@ main {
   bottom: 0;
 
   height: 58px; /* vaste hoogte = belangrijk */
-  padding-bottom: 5px /*-inset-bottom)*/;
+  padding-bottom: env(safe-area-inset-bottom); /* Oplossing: dynamische insets i.p.v. hardcoded 5px */
 
   display: flex;
   align-items: center;
@@ -204,7 +204,7 @@ main {
 
   z-index: 99999;
 
-  box-sizing: border-box;
+  box-sizing: content-box; /* Oplossing: content-box zorgt dat de bar niet inkrimpt door de safe-area padding */
 }
 
 .native-nav-link {
@@ -267,19 +267,17 @@ input, textarea, select, [contenteditable="true"], [role="textbox"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-
 body {
   transition: background-color 150ms ease;
- 
 }
 
-
 html, body {
-  height: 100dvh;
+  min-height: 100dvh; /* Oplossing: min-height i.p.v. height zodat scrollen niet breekt */
 }
 
 body {
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Oplossing: Zorg dat de content op het einde niet achter je bottom-bar valt */
+  padding-bottom: calc(58px + env(safe-area-inset-bottom));
 }
 
 .animate-layer {
