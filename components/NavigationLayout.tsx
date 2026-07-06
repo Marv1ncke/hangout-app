@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Link } from "next-view-transitions";
-import { Calendar, Users, CreditCard, Bell, Info, ChevronDown } from "lucide-react";
+import { Calendar, Users, CreditCard, Bell, ChevronDown } from "lucide-react";
 
 interface NavigationLayoutProps {
   children: React.ReactNode;
@@ -17,6 +17,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   const pathname = usePathname();
 
   const [profile, setProfile] = useState<{ full_name: string; avatar_url: string } | null>(null);
+  const [email, setEmail] = useState("");
   const [pendingCount, setPendingCount] = useState(0);
   const [activeGroup, setActiveGroup] = useState<{ id: string; name: string } | null>(null);
   const [userGroups, setUserGroups] = useState<any[]>([]);
@@ -32,6 +33,8 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
       return;
     }
 
+    setEmail(session.user.email ?? "");
+
     const { data: profileData } = await supabase
       .from("profiles")
       .select("full_name, avatar_url, selected_group_id")
@@ -41,9 +44,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
     if (profileData) {
       setProfile({
         full_name: profileData.full_name || "Gebruiker",
-        avatar_url:
-          profileData.avatar_url ||
-          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(profileData.full_name || "U")}`,
+        avatar_url: profileData.avatar_url || "",
       });
     }
 
@@ -104,13 +105,20 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
 
   if (isAuthPage) return <>{children}</>;
 
+  // 🛑 Info is hier verwijderd uit de navigatie-items
   const navItems = [
     { label: "Agenda", path: "/events", icon: <Calendar size={20} /> },
     { label: "Groepen", path: "/groups", icon: <Users size={20} /> },
     { label: "Kosten pot", path: "/expenses", icon: <CreditCard size={20} /> },
     { label: "Meldingen", path: "/notifications", badge: pendingCount > 0, icon: <Bell size={20} /> },
-    { label: "Info", path: "/info", icon: <Info size={20} /> },
   ];
+
+  const initials =
+    profile?.full_name?.trim()?.charAt(0)?.toUpperCase() ||
+    email?.charAt(0)?.toUpperCase() ||
+    "?";
+
+  const isProfileActive = pathname === "/profile";
 
   return (
     <div className="min-h-screen bg-background/50 text-foreground antialiased md:flex">
@@ -164,7 +172,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
       </main>
 
       {/* BOTTOM NAV */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex justify-around items-center px-2 h-[calc(49px+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] z-[99999] bg-background/90 backdrop-blur-md border-t border-border">
+      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex justify-around items-center px-2 h-[calc(49px+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] z-[99999] bg-background/90 backdrop-blur-md border-t border-border select-none">
         {navItems.map(item => {
           const isActive = pathname === item.path;
 
@@ -176,18 +184,45 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
                 setTransitioning(true);
                 setTimeout(() => setTransitioning(false), 180);
               }}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center justify-center min-w-[60px]"
             >
-              {item.icon}
-              <span className={isActive ? "text-white" : "text-neutral-400"}>
+              <div className={isActive ? "text-white" : "text-neutral-400"}>
+                {item.icon}
+              </div>
+              <span className={`text-[10px] font-bold mt-1 ${isActive ? "text-white" : "text-neutral-400"}`}>
                 {item.label}
               </span>
             </Link>
           );
         })}
 
-        <Link href="/profile">
-          <img src={profile?.avatar_url} className="w-5 h-5 rounded-full" />
+        {/* ⚡ PROFIELKNOP (Perfect uitgelijnd, even groot en in dezelfde stijl als de rest) */}
+        <Link 
+          href="/profile" 
+          onClick={() => {
+            setTransitioning(true);
+            setTimeout(() => setTransitioning(false), 180);
+          }}
+          className="flex flex-col items-center justify-center min-w-[60px]"
+        >
+          {profile?.avatar_url ? (
+            <img 
+              src={profile.avatar_url} 
+              alt="Profile"
+              className={`w-5 h-5 rounded-full object-cover border ${
+                isProfileActive ? "border-white" : "border-neutral-500"
+              }`} 
+            />
+          ) : (
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black ${
+              isProfileActive ? "bg-white text-black" : "bg-neutral-700 text-white"
+            }`}>
+              {initials}
+            </div>
+          )}
+          <span className={`text-[10px] font-bold mt-1 ${isProfileActive ? "text-white" : "text-neutral-400"}`}>
+            Profiel
+          </span>
         </Link>
       </nav>
     </div>
