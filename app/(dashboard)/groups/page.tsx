@@ -59,7 +59,6 @@ export default function GroupsPage() {
   const groupNameRef = React.useRef<HTMLInputElement>(null);
   const joinCodeRef = React.useRef<HTMLInputElement>(null);
 
-  // Premium Instagram-Style Dynamic Toast
   const [toast, setToast] = useState<{ message: string; sub?: string } | null>(null);
 
   const showNotification = (message: string, sub?: string) => {
@@ -69,7 +68,6 @@ export default function GroupsPage() {
     }, 3500);
   };
 
-  // Keep theme/font syncing cleanly isolated
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedFont = localStorage.getItem("app-custom-font");
@@ -77,11 +75,9 @@ export default function GroupsPage() {
     }
   }, []);
 
-  // 2. LIGHTNING-FAST WORKSPACE TOGGLER (OPTIMISTIC MUTATION)
   async function handleSelectActiveGroup(groupId: string) {
     if (!userId || groupId === activeGroupId) return;
 
-    // Instantly modify layout memory block before hitting network
     mutateNav(
       (old: any) => ({
         ...old,

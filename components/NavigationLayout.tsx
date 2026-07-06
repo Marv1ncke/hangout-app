@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, memo, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Link } from "next-view-transitions";
@@ -44,6 +44,8 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         avatar_url: profileData.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(profileData.full_name || "U")}`,
       });
     }
+
+    
 
     // 2. Groepen ophalen voor top-bar switcher
     const { data: myMemberships } = await supabase
@@ -109,6 +111,20 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
 
   const isProfileActive = pathname === "/profile";
 
+  const MainContent = memo(function MainContent({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    return (
+      <main className="flex-1 w-full min-h-screen md:pl-64">
+        <div className="max-w-4xl mx-auto px-4 py-5 md:py-8">
+          {children}
+        </div>
+      </main>
+    );
+  });
+
   return (
     <div className="min-h-screen bg-background/50 text-foreground antialiased flex flex-col md:flex-row">
       
@@ -148,12 +164,9 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         {/* desktop layout ... */}
       </aside>
 
-      {/* MAIN LAYOUT WRAPPER */}
-      <main className="flex-1 w-full min-h-screen md:pl-64">
-        <div className="max-w-4xl mx-auto px-4 py-5 md:py-8">
-          {children}
-        </div>
-      </main>
+      <MainContent>{children}</MainContent>
+
+     
 
       {/* 📱 NATIVE MOBILE BOTTOM NAV - INCLUSIEF PROFIELFOTO RECHTSONDER */}
       <nav className="native-bottom-bar fixed bottom-0 left-0 right-0 w-full flex items-center justify-around px-2 z-40 md:hidden select-none">

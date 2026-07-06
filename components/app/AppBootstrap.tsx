@@ -33,7 +33,13 @@ export default function AppBootstrap({
     );
   }
 
-  if (!userId) return null;
+  if (!userId) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background text-sm text-neutral-500">
+        Loading Hangout...
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }
