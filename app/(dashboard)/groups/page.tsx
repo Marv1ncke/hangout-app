@@ -752,7 +752,7 @@ export default function GroupsPage() {
 
       {/* SHEET A: CREATE GROUP */}
       {showCreateSheet && (
-        <div className="fixed top-0 bottom-20 left-0 right-0 inset-0 z-999 w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed top-0 bottom-20 left-0 right-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h2 className="text-sm font-black text-foreground">Groep aanmaken</h2>
@@ -818,7 +818,7 @@ export default function GroupsPage() {
 
       {/* SHEET B: JOIN BY CODE */}
       {showJoinSheet && (
-        <div className="fixed top-0 bottom-20 left-0 right-0 inset-0 z-999 w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed top-0 bottom-20 left-0 right-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h2 className="text-sm font-black text-foreground">Deelnemen via code</h2>
@@ -854,7 +854,7 @@ export default function GroupsPage() {
 
       {/* SHEET C: MEMBERS LIST */}
       {showMembersSheet && (
-        <div className="fixed top-0 bottom-20 left-0 right-0 inset-0 z-9999 bg-container-bg flex flex-col animate-in slide-in-from-bottom duration-300">
+       <div className="fixed top-0 bottom-20 left-0 right-0 z-[9999] bg-container-bg flex flex-col animate-in slide-in-from-bottom duration-300">
           <div className="pt-12 pb-4 px-6 border-b border-border flex items-center justify-between shrink-0 bg-container-bg">
             <div>
               <h2 className="text-xl font-black text-foreground tracking-tight">
@@ -906,7 +906,7 @@ export default function GroupsPage() {
 
       {/* SHEET D: EDIT GROUP NAME */}
       {showEditSheet && (
-        <div className="fixed top-0 bottom-20 left-0 right-0 inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed top-0 bottom-20 left-0 right-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h2 className="text-sm font-black text-foreground">
@@ -941,7 +941,7 @@ export default function GroupsPage() {
 
       {/* SHEET E: LEAVE CONFIRM */}
       {showLeaveConfirmSheet && (
-        <div className="fixed top-0 bottom-20 left-0 right-0 inset-0 z-[999] w-screen h-screen bg-neutral-900/30 backdrop-blur-xl flex items-center justify-center p-4">
+        <div className="fixed top-0 bottom-20 left-0 right-0 z-[999] w-screen h-screen bg-neutral-900/30 backdrop-blur-xl flex items-center justify-center p-4">
           <div className="bg-container-bg w-full max-w-xs rounded-2xl shadow-2xl text-center overflow-hidden">
             <div className="p-5 space-y-1">
               <h3 className="font-black text-foreground text-sm">Groep verlaten?</h3>
@@ -970,7 +970,7 @@ export default function GroupsPage() {
 
       {/* SHEET F: DELETE LAST GROUP CONFIRM */}
       {showDeleteConfirm && (
-        <div className="fixed top-0 bottom-20 left-0 right-0 inset-0 z-999 w-screen h-screen bg-neutral-900/40 backdrop-blur-xl flex items-center justify-center p-4">
+        <div className="fixed top-0 bottom-20 left-0 right-0 z-[999] w-screen h-screen bg-neutral-900/40 backdrop-blur-xl flex items-center justify-center p-4">
           <div className="bg-container-bg w-full max-w-xs rounded-2xl shadow-2xl text-center overflow-hidden">
             <div className="p-5 space-y-1">
               <h3 className="font-black text-foreground text-sm">Groep verwijderen?</h3>
