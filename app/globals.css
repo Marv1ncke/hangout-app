@@ -182,34 +182,29 @@ input, textarea, select, [contenteditable="true"] {
 }
 
 main {
-  padding-top: calc(env(safe-area-inset-top) + 64px) !important;
+  padding-top: calc(env(safe-area-inset-top) + 20px) !important;
   will-change: auto;
 }
 
 .native-bottom-bar {
-  position: fixed !important;
+  position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
 
-  height: calc(49px + env(safe-area-inset-bottom));
+  height: 58px; /* vaste hoogte = belangrijk */
   padding-bottom: env(safe-area-inset-bottom);
 
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: space-around !important;
-
-  box-sizing: border-box;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
 
   background: var(--background);
   border-top: 1px solid var(--border);
 
   z-index: 99999;
 
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  box-sizing: border-box;
 }
 
 .native-nav-link {
