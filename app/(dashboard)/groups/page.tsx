@@ -12,6 +12,7 @@ import { useNavData } from "../../../hooks/useNavData";
 import { mutate } from "swr";
 import { Check } from "lucide-react";
 
+
 interface Group {
   id: string;
   name: string;
@@ -35,6 +36,8 @@ export default function GroupsPage() {
 
   const [isPending, startTransition] = useTransition();
 
+  
+
   // Custom Dynamic Font State
   const [activeFont, setActiveFont] = useState("inherit");
   
@@ -53,6 +56,8 @@ export default function GroupsPage() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedGroupMembers, setSelectedGroupMembers] = useState<GroupMemberDetail[]>([]);
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
+  const groupNameRef = React.useRef<HTMLInputElement>(null);
+  const joinCodeRef = React.useRef<HTMLInputElement>(null);
 
   // Premium Instagram-Style Dynamic Toast
   const [toast, setToast] = useState<{ message: string; sub?: string } | null>(null);
@@ -409,43 +414,80 @@ await supabase
       </div>
 
       {/* SHEET A: NIEUWE GROEP MAKEN */}
-      {showCreateSheet && (
-        <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h2 className="text-sm font-black text-foreground">Groep Aanmaken</h2>
-              <button onClick={() => setShowCreateSheet(false)} className="text-xs font-bold text-neutral-400 cursor-pointer">Annuleer</button>
-            </div>
-            <form onSubmit={handleCreateGroup} className="space-y-4">
-              <input type="text" placeholder="Groepsnaam" value={groupName} onChange={(e) => setGroupName(e.target.value)} required className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold" />
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">Groepstype</label>
-                <div className="bg-neutral-100 p-1 rounded-xl flex">
-                  <button type="button" onClick={() => setIsProtected(false)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${!isProtected ? "bg-container-bg text-foreground shadow-3xs" : "text-neutral-500"}`}>🔓 Open</button>
-                  <button type="button" onClick={() => setIsProtected(true)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${isProtected ? "bg-container-bg text-foreground shadow-3xs" : "text-neutral-500"}`}>🔒 Gesloten</button>
-                </div>
-              </div>
-              <button type="submit" className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Maak Groep</button>
-            </form>
+      {/* SHEET A: NIEUWE GROEP MAKEN */}
+{showCreateSheet && (
+  <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
+      <div className="flex items-center justify-between border-b border-border pb-3">
+        <h2 className="text-sm font-black text-foreground">Groep Aanmaken</h2>
+        <button onClick={() => setShowCreateSheet(false)} className="text-xs font-bold text-neutral-400 cursor-pointer">Annuleer</button>
+      </div>
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          // Haal de waarde direct uit de DOM op het moment van verzenden
+          const nameValue = groupNameRef.current?.value || "";
+          if (!nameValue.trim() || !userId) return;
+          
+          // Zet de waarde tijdelijk in de state voor je bestaande handleCreateGroup logica
+          setGroupName(nameValue);
+          // Trigger de verzending
+          setTimeout(() => handleCreateGroup(e), 50);
+        }} 
+        className="space-y-4"
+      >
+        <input 
+          ref={groupNameRef}
+          type="text" 
+          placeholder="Groepsnaam" 
+          required 
+          className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold" 
+        />
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">Groepstype</label>
+          <div className="bg-neutral-100 p-1 rounded-xl flex">
+            <button type="button" onClick={() => setIsProtected(false)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${!isProtected ? "bg-container-bg text-foreground shadow-3xs" : "text-neutral-500"}`}>🔓 Open</button>
+            <button type="button" onClick={() => setIsProtected(true)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${isProtected ? "bg-container-bg text-foreground shadow-3xs" : "text-neutral-500"}`}>🔒 Gesloten</button>
           </div>
         </div>
-      )}
+        <button type="submit" className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Maak Groep</button>
+      </form>
+    </div>
+  </div>
+)}
 
-      {/* SHEET B: JOINEN VIA CODE */}
-      {showJoinSheet && (
-        <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h2 className="text-sm font-black text-foreground">Deelnemen via Code</h2>
-              <button onClick={() => setShowJoinSheet(false)} className="text-xs font-bold text-neutral-400 cursor-pointer">Annuleer</button>
-            </div>
-            <form onSubmit={handleJoinCodeSubmit} className="space-y-4">
-              <input type="text" placeholder="CODE12" value={joinCodeInput} onChange={(e) => setJoinCodeInput(e.target.value)} required className="w-full bg-background border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-foreground" maxLength={6} />
-              <button type="submit" className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Deelnemen</button>
-            </form>
-          </div>
-        </div>
-      )}
+{/* SHEET B: JOINEN VIA CODE */}
+{showJoinSheet && (
+  <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
+      <div className="flex items-center justify-between border-b border-border pb-3">
+        <h2 className="text-sm font-black text-foreground">Deelnemen via Code</h2>
+        <button onClick={() => setShowJoinSheet(false)} className="text-xs font-bold text-neutral-400 cursor-pointer">Annuleer</button>
+      </div>
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          const codeValue = joinCodeRef.current?.value || "";
+          if (!codeValue.trim() || !userId) return;
+
+          setJoinCodeInput(codeValue);
+          setTimeout(() => handleJoinCodeSubmit(e), 50);
+        }} 
+        className="space-y-4"
+      >
+        <input 
+          ref={joinCodeRef}
+          type="text" 
+          placeholder="CODE12" 
+          required 
+          className="w-full bg-background border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-foreground" 
+          maxLength={6} 
+        />
+        <button type="submit" className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Deelnemen</button>
+      </form>
+    </div>
+  </div>
+)}
       
       {/* SHEET C: FULL SCREEN LEDENLIJST */}
       {showMembersSheet && (
