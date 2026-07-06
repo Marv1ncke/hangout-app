@@ -295,3 +295,67 @@ html, body, #root, #__next {
 ::view-transition-group(root) {
   background-color: var(--background);
 }
+
+/* ==========================================================================
+   FAKE PORTRAIT LOCK FOR iOS PWA LANDSCAPE
+   ========================================================================== */
+
+   #orientation-root {
+    min-height: 100dvh;
+  }
+  
+  .app-shell {
+    min-height: 100dvh;
+  }
+  
+  /* active only when OrientationLock adds html.fake-portrait */
+  html.fake-portrait,
+  html.fake-portrait body {
+    height: 100dvh;
+    overflow: hidden !important;
+  }
+  
+  html.fake-portrait body {
+    padding-bottom: 0 !important;
+    background: #000 !important;
+  }
+  
+  html.fake-portrait #orientation-root {
+    height: 100dvh;
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    overflow: hidden;
+  }
+  
+  /* portrait-sized app frame inside landscape */
+  html.fake-portrait .app-shell {
+    position: relative;
+    width: min(100vw, 430px);
+    max-width: 430px;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--background);
+  }
+  
+  /* constrain your fixed mobile header + bottom nav to the fake portrait frame */
+  html.fake-portrait .native-header,
+  html.fake-portrait nav.fixed.bottom-0 {
+    left: 50% !important;
+    right: auto !important;
+    width: min(100vw, 430px) !important;
+    max-width: 430px;
+    transform: translateX(-50%);
+  }
+  
+  /* keep the group selector aligned too */
+  html.fake-portrait .fixed.inset-0.z-40.md\:hidden > div.absolute.inset-x-0 {
+    left: 50% !important;
+    right: auto !important;
+    width: min(100vw, 430px) !important;
+    max-width: 430px;
+    transform: translateX(-50%);
+  }

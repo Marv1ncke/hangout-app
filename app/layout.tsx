@@ -8,6 +8,7 @@ import PushNotificationRegistry from "@/components/providers/PushNotificationReg
 import { AppProviders } from "../components/providers/AppProviders";
 import AppRegistry from "../components/AppRegistry";
 import ThemeListener from "@/components/ThemeListener";
+import OrientationLock from "@/components/OrientationLock";
 import "./globals.css";
 
 // 📱 Forceert iOS om de app-schaal te locken en voorkomt dat gebruikers per ongeluk in-zoomen
@@ -68,17 +69,22 @@ export default function RootLayout({
             }}
           />
         </head>
-        <body className="bg-background text-foreground overflow-x-hidden antialiased">
-          <AppProviders>
-            <ThemeListener />
-            <AppRegistry />
-            <NavigationLayout>
-              {children}
-              <InstallBanner />
-              <AppBadgeRegistry />
-              <PushNotificationRegistry />
-            </NavigationLayout>
-          </AppProviders>
+          <body className="bg-background text-foreground overflow-x-hidden antialiased">
+          <OrientationLock />
+          <div id="orientation-root">
+            <div className="app-shell">
+              <AppProviders>
+                <ThemeListener />
+                <AppRegistry />
+                <NavigationLayout>
+                  {children}
+                  <InstallBanner />
+                  <AppBadgeRegistry />
+                  <PushNotificationRegistry />
+                </NavigationLayout>
+              </AppProviders>
+            </div>
+          </div>
         </body>
       </html>
     </ViewTransitions>
