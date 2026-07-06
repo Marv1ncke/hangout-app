@@ -161,26 +161,26 @@ export default function EventsPage() {
     <div className="space-y-6 select-none animate-in fade-in">
       
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-neutral-100 pb-4 gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4 gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight">Agenda</h1>
           <p className="text-xs font-bold text-neutral-400 mt-0.5">Mis niks. Zie direct wie er meegaat en verdeel de taken.</p>
         </div>
         <button 
           onClick={() => { setFormError(null); setShowCreateSheet(true); }} 
-          className="sm:px-3.5 py-2 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition flex items-center justify-center gap-1"
+          className="sm:px-3.5 py-2 bg-btn-bg text-btn-text text-xs font-bold rounded-xl active:scale-95 transition flex items-center justify-center gap-1"
         >
           <Plus size={14} /> Nieuw Event Plannen
         </button>
       </div>
 
       {/* MINIMALISTISCHE TIMELINE TOGGLE */}
-      <div className="flex items-center justify-between bg-neutral-50 p-1 rounded-xl border border-neutral-100 max-w-md">
+      <div className="flex items-center justify-between bg-background p-1 rounded-xl border border-border max-w-md">
         {(["day", "week", "month", "6month"] as const).map((view) => (
           <button
             key={view}
             onClick={() => setCurrentView(view)}
-            className={`flex-1 py-1.5 text-[11px] font-black rounded-lg transition capitalize ${currentView === view ? "bg-white text-black shadow-3xs border border-neutral-200/40" : "text-neutral-400 hover:text-neutral-600"}`}
+            className={`flex-1 py-1.5 text-[11px] font-black rounded-lg transition capitalize ${currentView === view ? "bg-container-bg text-foreground shadow-3xs border border-border/40" : "text-neutral-400 hover:text-neutral-600"}`}
           >
             {view === "day" ? "Vandaag" : view === "week" ? "Week" : view === "month" ? "Maand" : "6 Maanden"}
           </button>
@@ -189,18 +189,18 @@ export default function EventsPage() {
 
       {/* INSTAGRAM-STYLE VLAKKE GRID */}
       {filteredEvents.length === 0 ? (
-        <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-neutral-100">
+        <div className="text-center py-12 bg-background rounded-2xl border border-border">
           <p className="text-xs font-bold text-neutral-400">Geen geplande activiteiten voor dit tijdsbestek.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-neutral-100 bg-neutral-100 gap-px overflow-hidden rounded-xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t border-l border-border bg-neutral-100 gap-px overflow-hidden rounded-xl">
           {filteredEvents.map((event) => {
             const isAttending = event.attendees?.includes(userId);
             const isTrip = event.event_type === "trip";
             const attendeesList = event.attendees || [];
 
             return (
-              <div key={event.id} className="bg-white p-5 flex flex-col justify-between space-y-4">
+              <div key={event.id} className="bg-container-bg p-5 flex flex-col justify-between space-y-4">
                 
                 {/* Bovenste Info */}
                 <div className="space-y-2">
@@ -210,14 +210,14 @@ export default function EventsPage() {
                     </span>
                     <button 
                       onClick={() => toggleAttendance(event)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-tight transition flex items-center gap-1 border ${isAttending ? "bg-red-50 border-red-100 text-red-600" : "bg-neutral-50 border-neutral-100 text-neutral-400 hover:text-neutral-600"}`}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-tight transition flex items-center gap-1 border ${isAttending ? "bg-red-50 border-red-100 text-red-600" : "bg-background border-border text-neutral-400 hover:text-neutral-600"}`}
                     >
                       <Heart size={10} fill={isAttending ? "currentColor" : "none"} />
                       {isAttending ? "Ik ga mee" : "Aanmelden"}
                     </button>
                   </div>
                   
-                  <h3 className="text-base font-black tracking-tight text-neutral-900">{event.title}</h3>
+                  <h3 className="text-base font-black tracking-tight text-foreground">{event.title}</h3>
                   
                   {event.time && (
                     <p className="text-[11px] font-bold text-neutral-400">
@@ -233,14 +233,14 @@ export default function EventsPage() {
                   )}
                   
                   {event.dresscode && (
-                    <p className="text-[10px] font-bold text-neutral-500 bg-neutral-50 px-2 py-1 rounded-md inline-block border border-neutral-200/40">
+                    <p className="text-[10px] font-bold text-neutral-500 bg-background px-2 py-1 rounded-md inline-block border border-border/40">
                       ✨ <b>Dresscode:</b> {event.dresscode}
                     </p>
                   )}
                 </div>
 
                 {/* Live Deelnemers (FOMO) */}
-                <div className="flex items-center gap-2 bg-neutral-50 p-2 rounded-xl">
+                <div className="flex items-center gap-2 bg-background p-2 rounded-xl">
                   {attendeesList.length === 0 ? (
                     <span className="text-[9px] font-bold text-neutral-400 italic">Nog niemand aangemeld</span>
                   ) : (
@@ -269,7 +269,7 @@ export default function EventsPage() {
 
                 {/* Reis-specifiek: Route & Stops */}
                 {isTrip && (event.start_location || event.end_location) && (
-                  <div className="text-xs font-bold text-neutral-600 bg-neutral-50 p-2 rounded-lg space-y-1">
+                  <div className="text-xs font-bold text-neutral-600 bg-background p-2 rounded-lg space-y-1">
                     <div className="flex items-center gap-1">
                       <Navigation size={10} className="text-amber-600" />
                       <span>{event.start_location || "Start"}</span>
@@ -299,7 +299,7 @@ export default function EventsPage() {
                         <div 
                           key={index}
                           onClick={() => claimItem(event, index)}
-                          className={`flex flex-col p-2 rounded-xl border cursor-pointer transition ${amIClaiming ? "bg-neutral-950 text-white border-neutral-950" : "bg-white text-neutral-700 hover:bg-neutral-50 border-neutral-100"}`}
+                          className={`flex flex-col p-2 rounded-xl border cursor-pointer transition ${amIClaiming ? "bg-neutral-950 text-white border-neutral-950" : "bg-container-bg text-neutral-700 hover:bg-background border-border"}`}
                         >
                           <div className="flex justify-between items-center text-xs font-bold">
                             <span>{itemObj.item}</span>
@@ -323,7 +323,7 @@ export default function EventsPage() {
                       placeholder="+ Voeg item toe aan de lijst..." 
                       value={newEventItem[event.id] || ""}
                       onChange={e => setNewEventItem({ ...newEventItem, [event.id]: e.target.value })}
-                      className="flex-1 bg-neutral-50 border border-neutral-200/60 rounded-lg px-2 py-1 text-[11px] outline-none font-bold"
+                      className="flex-1 bg-background border border-border/60 rounded-lg px-2 py-1 text-[11px] outline-none font-bold"
                     />
                     <button onClick={() => addNewItemToExistingEvent(event.id)} className="px-2.5 bg-neutral-900 text-white text-xs rounded-lg font-bold">+</button>
                   </div>
@@ -338,9 +338,9 @@ export default function EventsPage() {
       {/* CREATIE MODAL */}
       {showCreateSheet && (
         <div className="fixed inset-0 z-999 bg-black/20 backdrop-blur-xl flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-4">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
-              <h2 className="text-xs font-black text-neutral-900">Nieuw event toevoegen</h2>
+          <div className="bg-container-bg w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-4">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <h2 className="text-xs font-black text-foreground">Nieuw event toevoegen</h2>
               <button onClick={() => setShowCreateSheet(false)} className="text-xs font-bold text-neutral-400"><X size={16} /></button>
             </div>
 
@@ -351,8 +351,8 @@ export default function EventsPage() {
             )}
 
             <div className="grid grid-cols-2 gap-1.5 bg-neutral-100 p-1 rounded-xl">
-              <button type="button" onClick={() => { setEventType("hangout"); setFormError(null); }} className={`py-1.5 rounded-lg text-xs font-bold transition ${eventType === "hangout" ? "bg-white text-black shadow-3xs" : "text-neutral-500"}`}>🍻 Hangout</button>
-              <button type="button" onClick={() => { setEventType("trip"); setFormError(null); }} className={`py-1.5 rounded-lg text-xs font-bold transition ${eventType === "trip" ? "bg-white text-black shadow-3xs" : "text-neutral-500"}`}>✈️ Reis / Roadtrip</button>
+              <button type="button" onClick={() => { setEventType("hangout"); setFormError(null); }} className={`py-1.5 rounded-lg text-xs font-bold transition ${eventType === "hangout" ? "bg-container-bg text-foreground shadow-3xs" : "text-neutral-500"}`}>🍻 Hangout</button>
+              <button type="button" onClick={() => { setEventType("trip"); setFormError(null); }} className={`py-1.5 rounded-lg text-xs font-bold transition ${eventType === "trip" ? "bg-container-bg text-foreground shadow-3xs" : "text-neutral-500"}`}>✈️ Reis / Roadtrip</button>
             </div>
 
             <form onSubmit={async (e) => {
@@ -407,29 +407,29 @@ export default function EventsPage() {
             }} className="space-y-3">
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Naam van activiteit</label>
-                <input type="text" placeholder={eventType === "hangout" ? "Barbecue, Thuisbieren, Clubs..." : "Roadtrip 2026..."} value={title} onChange={e => setTitle(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                <input type="text" placeholder={eventType === "hangout" ? "Barbecue, Thuisbieren, Clubs..." : "Roadtrip 2026..."} value={title} onChange={e => setTitle(e.target.value)} required className="w-full bg-background border border-border p-2.5 rounded-xl text-xs font-bold outline-none" />
               </div>
 
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Locatie / Adres (Verplicht) *</label>
-                <input type="text" placeholder="bv. Café De Klomp, Dorpsstraat 12 of Gent-Sint-Pieters..." value={locationAddress} onChange={e => setLocationAddress(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none border-l-2 border-l-black" />
+                <input type="text" placeholder="bv. Café De Klomp, Dorpsstraat 12 of Gent-Sint-Pieters..." value={locationAddress} onChange={e => setLocationAddress(e.target.value)} required className="w-full bg-background border border-border p-2.5 rounded-xl text-xs font-bold outline-none border-l-2 border-l-black" />
               </div>
 
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Dresscode (Optioneel)</label>
-                <input type="text" placeholder="bv. Casual chic, Festival, All black..." value={dresscode} onChange={e => setDresscode(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                <input type="text" placeholder="bv. Casual chic, Festival, All black..." value={dresscode} onChange={e => setDresscode(e.target.value)} className="w-full bg-background border border-border p-2.5 rounded-xl text-xs font-bold outline-none" />
               </div>
 
               <div>
                 <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Meeneemlijst vooraf opstellen</label>
                 <div className="flex gap-2">
-                  <input type="text" placeholder="Voeg item toe..." value={modalBringInput} onChange={e => setModalBringInput(e.target.value)} className="flex-1 bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
-                  <button type="button" onClick={() => { if(modalBringInput.trim()){ setModalBringList([...modalBringList, modalBringInput.trim()]); setModalBringInput(""); } }} className="bg-black text-white px-4 rounded-xl text-xs font-bold">+</button>
+                  <input type="text" placeholder="Voeg item toe..." value={modalBringInput} onChange={e => setModalBringInput(e.target.value)} className="flex-1 bg-background border border-border p-2.5 rounded-xl text-xs font-bold outline-none" />
+                  <button type="button" onClick={() => { if(modalBringInput.trim()){ setModalBringList([...modalBringList, modalBringInput.trim()]); setModalBringInput(""); } }} className="bg-btn-bg text-btn-text px-4 rounded-xl text-xs font-bold">+</button>
                 </div>
                 {modalBringList.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2 max-h-24 overflow-y-auto">
                     {modalBringList.map((item, i) => (
-                      <span key={i} className="bg-neutral-50 text-neutral-800 text-[10px] font-bold px-2 py-1 rounded-lg border flex items-center gap-1">
+                      <span key={i} className="bg-background text-neutral-800 text-[10px] font-bold px-2 py-1 rounded-lg border flex items-center gap-1">
                         🎒 {item}
                         <button type="button" onClick={() => setModalBringList(modalBringList.filter((_, idx) => idx !== i))} className="text-neutral-400 hover:text-red-500">×</button>
                       </span>
@@ -441,26 +441,26 @@ export default function EventsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">{eventType === "hangout" ? "Datum" : "Startdatum"}</label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-background border border-border p-2.5 rounded-xl text-xs font-bold outline-none" />
                 </div>
                 
                 {eventType === "hangout" ? (
                   <div>
                     <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Starttijd</label>
-                    <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                    <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full bg-background border border-border p-2.5 rounded-xl text-xs font-bold outline-none" />
                   </div>
                 ) : (
                   <div>
                     <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Einddatum</label>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs font-bold outline-none" />
+                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required className="w-full bg-background border border-border p-2.5 rounded-xl text-xs font-bold outline-none" />
                   </div>
                 )}
               </div>
 
               {eventType === "hangout" && (
-                <div className="bg-neutral-50 p-2.5 rounded-xl space-y-2 border border-neutral-100">
+                <div className="bg-background p-2.5 rounded-xl space-y-2 border border-border">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input type="checkbox" checked={hasEndTime} onChange={e => setHasEndTime(e.target.checked)} className="rounded border-neutral-300 text-black focus:ring-black accent-black" />
+                    <input type="checkbox" checked={hasEndTime} onChange={e => setHasEndTime(e.target.checked)} className="rounded border-neutral-300 text-foreground focus:ring-black accent-black" />
                     <span className="text-[11px] font-bold text-neutral-700">Heeft deze hangout een einduur/datum?</span>
                   </label>
                   
@@ -472,7 +472,7 @@ export default function EventsPage() {
                         value={endTime} 
                         onChange={e => setEndTime(e.target.value)} 
                         required={hasEndTime} 
-                        className="w-full bg-white border border-neutral-200 p-2 rounded-lg text-xs font-bold outline-none" 
+                        className="w-full bg-container-bg border border-border p-2 rounded-lg text-xs font-bold outline-none" 
                       />
                     </div>
                   )}
@@ -484,18 +484,18 @@ export default function EventsPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Vertreklocatie</label>
-                      <input type="text" placeholder="Thuis..." value={startLocation} onChange={e => setStartLocation(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2 rounded-xl text-xs font-bold outline-none" />
+                      <input type="text" placeholder="Thuis..." value={startLocation} onChange={e => setStartLocation(e.target.value)} className="w-full bg-background border border-border p-2 rounded-xl text-xs font-bold outline-none" />
                     </div>
                     <div>
                       <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Eindbestemming</label>
-                      <input type="text" placeholder="Bestemming..." value={endLocation} onChange={e => setEndLocation(e.target.value)} className="w-full bg-neutral-50 border border-neutral-100 p-2 rounded-xl text-xs font-bold outline-none" />
+                      <input type="text" placeholder="Bestemming..." value={endLocation} onChange={e => setEndLocation(e.target.value)} className="w-full bg-background border border-border p-2 rounded-xl text-xs font-bold outline-none" />
                     </div>
                   </div>
 
                   <div>
                     <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Tussenstop toevoegen</label>
                     <div className="flex gap-2">
-                      <input type="text" placeholder="bv. Hotel of tankstation..." value={stopInput} onChange={e => setStopInput(e.target.value)} className="flex-1 bg-neutral-50 border border-neutral-100 p-2 rounded-xl text-xs font-bold outline-none" />
+                      <input type="text" placeholder="bv. Hotel of tankstation..." value={stopInput} onChange={e => setStopInput(e.target.value)} className="flex-1 bg-background border border-border p-2 rounded-xl text-xs font-bold outline-none" />
                       <button type="button" onClick={() => { if(stopInput.trim()){ setStops([...stops, stopInput.trim()]); setStopInput(""); } }} className="bg-neutral-100 px-3 rounded-xl text-xs font-bold">+</button>
                     </div>
                     {stops.length > 0 && (
@@ -507,7 +507,7 @@ export default function EventsPage() {
                 </div>
               )}
 
-              <button type="submit" className="w-full bg-black text-white p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2">
+              <button type="submit" className="w-full bg-btn-bg text-btn-text p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2">
                 Event definitief opslaan 🚀
               </button>
             </form>

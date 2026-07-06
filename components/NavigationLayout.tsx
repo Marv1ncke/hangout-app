@@ -101,7 +101,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   const navItems = [
     { label: "Agenda", path: "/events", icon: <Calendar size={20} strokeWidth={2.5} /> },
     { label: "Groepen", path: "/groups", icon: <Users size={20} strokeWidth={2.5} /> },
-    { label: "Bezetting", path: "/availability", icon: <Clock size={20} strokeWidth={2.5} /> },
+    /*{ label: "Bezetting", path: "/availability", icon: <Clock size={20} strokeWidth={2.5} /> },*/
     { label: "Kosten pot", path: "/expenses", icon: <CreditCard size={20} strokeWidth={2.5} /> },
     { label: "Meldingen", path: "/notifications", badge: pendingCount > 0, icon: <Bell size={20} strokeWidth={2.5} /> },
     { label: "Info", path: "/info", icon: <Info size={20} strokeWidth={2.5} /> },
@@ -110,7 +110,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   const isProfileActive = pathname === "/profile";
 
   return (
-    <div className="min-h-screen bg-neutral-50/50 text-neutral-900 antialiased flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background/50 text-foreground antialiased flex flex-col md:flex-row">
       
       {/* 📱 NATIVE SOCIAL MOBILE TOP BAR - ZONDER PROFIELFOTO */}
       <header className="native-header flex items-center justify-between px-4 md:hidden select-none">
@@ -129,12 +129,12 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
       {showGroupSelector && (
         <>
           <div className="fixed inset-0 z-40 bg-black/10 backdrop-blur-xs md:hidden" onClick={() => setShowGroupSelector(false)} />
-          <div className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+56px)] z-50 bg-white border-b border-neutral-100 p-3 space-y-1 animate-in slide-in-from-top-2 md:hidden">
+          <div className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+56px)] z-50 bg-container-bg border-b border-border p-3 space-y-1 animate-in slide-in-from-top-2 md:hidden">
             {userGroups.map((g) => (
               <button
                 key={g.id}
                 onClick={() => handleGroupSwitch(g.id)}
-                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${activeGroup?.id === g.id ? "bg-black text-white" : "bg-neutral-50 text-neutral-700 hover:bg-neutral-100"}`}
+                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${activeGroup?.id === g.id ? "bg-btn-bg text-btn-text" : "bg-background text-neutral-700 hover:bg-neutral-100"}`}
               >
                 {g.name}
               </button>
@@ -144,7 +144,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
       )}
 
       {/* 🖥️ DESKTOP SIDEBAR PANEL */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 md:flex flex-col justify-between bg-white border-r border-neutral-100 px-4 py-6 select-none">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 md:flex flex-col justify-between bg-container-bg border-r border-border px-4 py-6 select-none">
         {/* desktop layout ... */}
       </aside>
 
@@ -163,7 +163,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
             <Link 
               key={item.path} 
               href={item.path} 
-              className={`flex flex-col items-center justify-center space-y-0.5 w-12 h-12 relative native-nav-link ${isActive ? "text-black" : "text-neutral-400"}`}
+              className={`flex flex-col items-center justify-center space-y-0.5 w-12 h-12 relative native-nav-link ${isActive ? "text-foreground" : "text-neutral-400"}`}
             >
               {item.icon}
               <span className="text-[9px] font-bold tracking-tight">{item.label.split(" ")[0]}</span>
@@ -175,9 +175,9 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         {/* PROFIELFOTO GEÏNTEGREERD ALS LAATSTE KNOTS ELEMENT */}
         <Link 
           href="/profile" 
-          className={`flex flex-col items-center justify-center space-y-0.5 w-12 h-12 relative native-nav-link ${isProfileActive ? "text-black" : "text-neutral-400"}`}
+          className={`flex flex-col items-center justify-center space-y-0.5 w-12 h-12 relative native-nav-link ${isProfileActive ? "text-foreground" : "text-neutral-400"}`}
         >
-          <div className={`h-5 w-5 rounded-full overflow-hidden border transition-all ${isProfileActive ? "border-black scale-105" : "border-neutral-200"}`}>
+          <div className={`h-5 w-5 rounded-full overflow-hidden border transition-all ${isProfileActive ? "border-black scale-105" : "border-border"}`}>
             <img src={profile?.avatar_url} alt="Profile" className="h-full w-full object-cover" />
           </div>
           <span className="text-[9px] font-bold tracking-tight">Profiel</span>

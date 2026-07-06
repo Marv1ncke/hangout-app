@@ -149,7 +149,7 @@ export default function AvailabilityPage() {
         <button
           onClick={() => setShowAllBusy(!showAllBusy)}
           className={`px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-            showAllBusy ? "bg-black text-white" : "bg-neutral-100 text-neutral-600"
+            showAllBusy ? "bg-btn-bg text-btn-text" : "bg-neutral-100 text-neutral-600"
           }`}
         >
           {showAllBusy ? "Verberg Bezette Tijden" : "Toon Bezette Tijden"}
@@ -160,7 +160,7 @@ export default function AvailabilityPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
         
         {/* SIDEBAR: Vrienden Toggles (Apple-stijl contactenlijst) */}
-        <div className="lg:col-span-1 bg-neutral-50/60 p-4 rounded-2xl space-y-4">
+        <div className="lg:col-span-1 bg-background/60 p-4 rounded-2xl space-y-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400 px-1">Groepsleden</h3>
           <div className="space-y-1">
             {members.map((member) => (
@@ -175,7 +175,7 @@ export default function AvailabilityPage() {
                 </div>
                 {/* Native iOS-achtige status indicator */}
                 <div className={`w-8 h-5 rounded-full p-0.5 transition-colors duration-200 ${member.visible ? 'bg-green-500' : 'bg-neutral-300'}`}>
-                  <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${member.visible ? 'translate-x-3' : 'translate-x-0'}`} />
+                  <div className={`bg-container-bg w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ${member.visible ? 'translate-x-3' : 'translate-x-0'}`} />
                 </div>
               </button>
             ))}
@@ -186,8 +186,8 @@ export default function AvailabilityPage() {
         <div className="lg:col-span-3 space-y-6">
           
           {/* THE CALENDAR BLOCK */}
-          <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-neutral-100 bg-neutral-50/40 flex justify-between items-center">
+          <div className="bg-container-bg rounded-2xl border border-border overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-border bg-background/40 flex justify-between items-center">
               <span className="text-sm font-semibold tracking-tight">Actieve Tijdsblokken op Agenda</span>
               <span className="text-xs text-neutral-400">{filteredBusyPeriods.length} actieve blokken</span>
             </div>
@@ -201,11 +201,11 @@ export default function AvailabilityPage() {
                 {filteredBusyPeriods.map((bp) => {
                   const user = members.find(m => m.id === bp.profile_id);
                   return (
-                    <div key={bp.id} className="p-4 flex items-center justify-between gap-4 hover:bg-neutral-50/50 transition-colors">
+                    <div key={bp.id} className="p-4 flex items-center justify-between gap-4 hover:bg-background/50 transition-colors">
                       <div className="flex items-center space-x-3 min-w-0">
                         <img src={user?.avatar_url} className="w-6 h-6 rounded-full object-cover" alt="" />
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-neutral-900 truncate">{bp.title}</p>
+                          <p className="text-sm font-semibold text-foreground truncate">{bp.title}</p>
                           <p className="text-xs text-neutral-400 truncate">Door: {user?.full_name}</p>
                         </div>
                       </div>
@@ -228,7 +228,7 @@ export default function AvailabilityPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* FORM A: Mark Yourself Busy */}
-            <div className="bg-white border border-neutral-100 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="bg-container-bg border border-border rounded-2xl p-5 shadow-sm space-y-4">
               <h3 className="text-sm font-bold tracking-tight">Markeer jezelf als bezet</h3>
               <form onSubmit={handleMarkBusy} className="space-y-3">
                 <input
@@ -236,16 +236,16 @@ export default function AvailabilityPage() {
                   placeholder="Wat ben je aan het doen? (bijv. Werk)"
                   value={busyTitle}
                   onChange={(e) => setBusyTitle(e.target.value)}
-                  className="w-full bg-neutral-50 rounded-xl p-3 text-xs outline-none focus:ring-1 focus:ring-black/10"
+                  className="w-full bg-background rounded-xl p-3 text-xs outline-none focus:ring-1 focus:ring-black/10"
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[10px] font-bold text-neutral-400 uppercase">Van</label>
-                    <input type="datetime-local" value={busyStart} onChange={(e) => setBusyStart(e.target.value)} required className="w-full bg-neutral-50 rounded-xl p-2.5 text-xs outline-none" />
+                    <input type="datetime-local" value={busyStart} onChange={(e) => setBusyStart(e.target.value)} required className="w-full bg-background rounded-xl p-2.5 text-xs outline-none" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-neutral-400 uppercase">Tot</label>
-                    <input type="datetime-local" value={busyEnd} onChange={(e) => setBusyEnd(e.target.value)} required className="w-full bg-neutral-50 rounded-xl p-2.5 text-xs outline-none" />
+                    <input type="datetime-local" value={busyEnd} onChange={(e) => setBusyEnd(e.target.value)} required className="w-full bg-background rounded-xl p-2.5 text-xs outline-none" />
                   </div>
                 </div>
                 <button type="submit" className="w-full bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-semibold py-2.5 rounded-xl transition-all">
@@ -255,8 +255,8 @@ export default function AvailabilityPage() {
             </div>
 
             {/* FORM B: Plan Event (Apple Form Style) */}
-            <div className="bg-white border border-neutral-100 rounded-2xl p-5 shadow-sm space-y-4">
-              <h3 className="text-sm font-bold tracking-tight text-neutral-900">Nieuwe Hangout Plannen</h3>
+            <div className="bg-container-bg border border-border rounded-2xl p-5 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold tracking-tight text-foreground">Nieuwe Hangout Plannen</h3>
               <form onSubmit={handleCreateEvent} className="space-y-3">
                 <input
                   type="text"
@@ -264,23 +264,23 @@ export default function AvailabilityPage() {
                   value={eventTitle}
                   onChange={(e) => setEventTitle(e.target.value)}
                   required
-                  className="w-full bg-neutral-50 rounded-xl p-3 text-xs outline-none focus:ring-1 focus:ring-black/10"
+                  className="w-full bg-background rounded-xl p-3 text-xs outline-none focus:ring-1 focus:ring-black/10"
                 />
                 <input
                   type="text"
                   placeholder="Adres / Locatie"
                   value={eventLocation}
                   onChange={(e) => setEventLocation(e.target.value)}
-                  className="w-full bg-neutral-50 rounded-xl p-3 text-xs outline-none focus:ring-1 focus:ring-black/10"
+                  className="w-full bg-background rounded-xl p-3 text-xs outline-none focus:ring-1 focus:ring-black/10"
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[10px] font-bold text-neutral-400 uppercase">Start</label>
-                    <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} required className="w-full bg-neutral-50 rounded-xl p-2.5 text-xs outline-none" />
+                    <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} required className="w-full bg-background rounded-xl p-2.5 text-xs outline-none" />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-neutral-400 uppercase">Einde</label>
-                    <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className="w-full bg-neutral-50 rounded-xl p-2.5 text-xs outline-none" />
+                    <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className="w-full bg-background rounded-xl p-2.5 text-xs outline-none" />
                   </div>
                 </div>
                 
@@ -289,7 +289,7 @@ export default function AvailabilityPage() {
                   placeholder="Dresscode (optioneel)"
                   value={dresscode}
                   onChange={(e) => setDresscode(e.target.value)}
-                  className="w-full bg-neutral-50 rounded-xl p-3 text-xs outline-none"
+                  className="w-full bg-background rounded-xl p-3 text-xs outline-none"
                 />
 
                 <div className="flex items-center justify-between py-1 px-1">
@@ -298,7 +298,7 @@ export default function AvailabilityPage() {
                     type="checkbox"
                     checked={hasBringList}
                     onChange={(e) => setHasBringList(e.target.checked)}
-                    className="rounded text-black focus:ring-0 w-4 h-4"
+                    className="rounded text-foreground focus:ring-0 w-4 h-4"
                   />
                 </div>
 
@@ -308,7 +308,7 @@ export default function AvailabilityPage() {
                     placeholder="Items (gescheiden door komma's, bijv: Cola, Chips, Vlees)"
                     value={bringItems}
                     onChange={(e) => setBringItems(e.target.value)}
-                    className="w-full bg-neutral-50 rounded-xl p-3 text-xs outline-none border border-neutral-200 animate-fadeIn"
+                    className="w-full bg-background rounded-xl p-3 text-xs outline-none border border-border animate-fadeIn"
                   />
                 )}
 

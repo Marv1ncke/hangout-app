@@ -48,7 +48,7 @@ export default function RootLayout({
           {/* Voorkomt dat iOS links buiten de PWA opent in Safari */}
           <meta name="mobile-web-app-capable" content="yes" />
         </head>
-        <body className="bg-neutral-50/50 text-neutral-900 overflow-x-hidden antialiased">
+        <body className="bg-background/50 text-foreground overflow-x-hidden antialiased">
           <AppProviders>
             <AppRegistry />
             <NavigationLayout>

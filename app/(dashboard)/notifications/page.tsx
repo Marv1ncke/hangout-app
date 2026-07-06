@@ -91,7 +91,7 @@ export default function NotificationsPage() {
   if (isLoading && (!requests || requests.length === 0)) {
     return (
       <div className="max-w-2xl mx-auto space-y-6 pb-24 select-none animate-pulse">
-        <div className="border-b border-neutral-100 pb-5">
+        <div className="border-b border-border pb-5">
           <div className="h-8 bg-neutral-200/70 rounded-xl w-36 mb-2" />
           <div className="h-4 bg-neutral-100 rounded-lg w-64" />
         </div>
@@ -114,16 +114,16 @@ export default function NotificationsPage() {
         </div>
       )}
 
-      <div className="border-b border-neutral-100 pb-5">
-        <h1 className="text-3xl font-black tracking-tight text-neutral-900">Activiteit</h1>
+      <div className="border-b border-border pb-5">
+        <h1 className="text-3xl font-black tracking-tight text-foreground">Activiteit</h1>
         <p className="text-sm text-neutral-400 font-bold mt-0.5">
           Verzoeken voor toegang tot je privé groepen.
         </p>
       </div>
 
       {(requests || []).length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center p-12 bg-neutral-50 rounded-3xl border border-neutral-100/60 space-y-3">
-          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-3xs text-neutral-400">
+        <div className="flex flex-col items-center justify-center text-center p-12 bg-background rounded-3xl border border-border/60 space-y-3">
+          <div className="w-12 h-12 bg-container-bg rounded-2xl flex items-center justify-center shadow-3xs text-neutral-400">
             <BellOff size={22} />
           </div>
           <div>
@@ -141,10 +141,10 @@ export default function NotificationsPage() {
             {(requests || []).map((req) => (
               <div
                 key={req.id}
-                className="bg-white border border-neutral-100 p-4 rounded-2xl flex items-center justify-between gap-4 transition-all hover:border-neutral-200/80 shadow-3xs"
+                className="bg-container-bg border border-border p-4 rounded-2xl flex items-center justify-between gap-4 transition-all hover:border-border/80 shadow-3xs"
               >
                 <div className="flex items-center space-x-3.5 min-w-0">
-                  <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 border border-neutral-100">
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 border border-border">
                     <Image
                       src={req.user_avatar}
                       alt={req.user_name}
@@ -154,8 +154,8 @@ export default function NotificationsPage() {
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-neutral-900 tracking-tight leading-snug">
-                      <span className="font-black text-black">{req.user_name}</span> wil meedoen met{" "}
+                    <p className="text-sm font-bold text-foreground tracking-tight leading-snug">
+                      <span className="font-black text-foreground">{req.user_name}</span> wil meedoen met{" "}
                       <span className="text-blue-600 font-extrabold">#{req.group_name}</span>
                     </p>
                     <p className="text-[10px] text-neutral-400 font-bold mt-0.5">

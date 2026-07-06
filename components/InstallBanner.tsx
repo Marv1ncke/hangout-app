@@ -20,7 +20,7 @@ export default function InstallBanner() {
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[9999] bg-white border border-neutral-200 p-4 rounded-2xl shadow-xl flex flex-col gap-2 animate-in slide-in-from-bottom-5">
+    <div className="fixed bottom-4 left-4 right-4 z-[9999] bg-container-bg border border-border p-4 rounded-2xl shadow-xl flex flex-col gap-2 animate-in slide-in-from-bottom-5">
       <div className="flex justify-between items-start">
         <p className="text-xs font-bold text-neutral-800 pr-4">
           Installeer als app op je startscherm voor de beste ervaring:

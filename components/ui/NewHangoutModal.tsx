@@ -89,7 +89,7 @@ export function NewHangoutModal() {
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/40 flex items-end md:items-center justify-center p-3">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl border p-4 md:p-5 space-y-4">
+      <div className="w-full max-w-lg rounded-2xl bg-container-bg shadow-xl border p-4 md:p-5 space-y-4">
         <div>
           <h2 className="text-lg font-bold">
             {editing ? "Edit hangout" : "New hangout"}
@@ -156,7 +156,7 @@ export function NewHangoutModal() {
             <button
               onClick={saveEvent}
               disabled={saving}
-              className="px-4 py-2 rounded-xl bg-black text-white"
+              className="px-4 py-2 rounded-xl bg-btn-bg text-btn-text"
             >
               {saving ? "Saving..." : editing ? "Save changes" : "Create hangout"}
             </button>

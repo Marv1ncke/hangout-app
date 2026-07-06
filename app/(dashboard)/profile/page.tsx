@@ -167,17 +167,17 @@ export default function ProfilePage() {
   return (
     <div style={{ fontFamily: activeFont }} className="max-w-xl mx-auto space-y-8 px-2 md:px-0 select-none animate-in fade-in">
       <div>
-        <h1 className="text-3xl font-black tracking-tight text-neutral-900">Instellingen</h1>
+        <h1 className="text-3xl font-black tracking-tight text-foreground">Instellingen</h1>
         <p className="text-sm text-neutral-400 font-bold mt-0.5">Beheer je hangout-identiteit en interface.</p>
       </div>
 
-      <div className="bg-white rounded-2xl p-6 border border-neutral-100/60 space-y-6 shadow-3xs">
+      <div className="bg-container-bg rounded-2xl p-6 border border-border/60 space-y-6 shadow-3xs">
         <form onSubmit={saveProfile} className="space-y-6">
           
           <div className="flex items-center gap-5">
             <div 
               onClick={() => !uploading && fileInputRef.current?.click()}
-              className="relative h-20 w-20 rounded-full overflow-hidden bg-neutral-900 cursor-pointer group flex-shrink-0 border border-neutral-100"
+              className="relative h-20 w-20 rounded-full overflow-hidden bg-neutral-900 cursor-pointer group flex-shrink-0 border border-border"
             >
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover transition group-hover:opacity-80" />
@@ -192,12 +192,12 @@ export default function ProfilePage() {
             </div>
 
             <div className="min-w-0">
-              <h3 className="font-black text-neutral-900 tracking-tight truncate">{fullName || "Naam laden..."}</h3>
+              <h3 className="font-black text-foreground tracking-tight truncate">{fullName || "Naam laden..."}</h3>
               <p className="text-xs text-neutral-400 font-bold truncate break-all">{email || "Email laden..."}</p>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-2 text-xs font-bold text-neutral-500 hover:text-black underline underline-offset-4 cursor-pointer"
+                className="mt-2 text-xs font-bold text-neutral-500 hover:text-foreground underline underline-offset-4 cursor-pointer"
                 disabled={uploading}
               >
                 {uploading ? "Uploaden..." : "Foto uploaden"}
@@ -218,7 +218,7 @@ export default function ProfilePage() {
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full rounded-xl bg-neutral-50 border border-neutral-100/60 p-3.5 text-sm font-bold outline-none text-neutral-900"
+              className="w-full rounded-xl bg-background border border-border/60 p-3.5 text-sm font-bold outline-none text-foreground"
               placeholder="bijv. Markus"
               required
             />
@@ -239,7 +239,7 @@ export default function ProfilePage() {
                   className={`p-3 text-xs font-bold rounded-xl border text-left transition active:scale-98 cursor-pointer ${
                     activeFont === font.id
                       ? "bg-neutral-900 border-neutral-900 text-white shadow-3xs"
-                      : "bg-neutral-50 border-neutral-100 hover:border-neutral-200 text-neutral-800"
+                      : "bg-background border-border hover:border-border text-neutral-800"
                   }`}
                 >
                   {font.name}
@@ -267,7 +267,7 @@ export default function ProfilePage() {
           </HapticButton>
         </form>
 
-        <div className="pt-2 border-t border-neutral-100">
+        <div className="pt-2 border-t border-border">
           <button
             type="button"
             onClick={handleLogout}

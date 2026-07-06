@@ -59,8 +59,8 @@ export default function UpdatePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl border bg-container-bg p-6 shadow-sm">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Choose a new password</h1>
           <p className="mt-1 text-sm text-neutral-500">
@@ -119,7 +119,7 @@ export default function UpdatePasswordPage() {
         {!isValidSession && (
           <button
             onClick={() => router.replace("/login")}
-            className="w-full mt-2 rounded-xl bg-neutral-100 px-4 py-3 text-black font-medium hover:bg-neutral-200"
+            className="w-full mt-2 rounded-xl bg-neutral-100 px-4 py-3 text-foreground font-medium hover:bg-neutral-200"
           >
             Return to Log In
           </button>

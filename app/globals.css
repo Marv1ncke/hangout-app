@@ -5,11 +5,21 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
+  /* Systeem Tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --color-border: var(--border);
+
+  /* ⚡ CENTRALISATIE: Knop & Container Tokens */
+  --color-btn-bg: var(--btn-bg);
+  --color-btn-text: var(--btn-text);
+  --color-btn-hover: var(--btn-hover);
+  --color-container-bg: var(--container-bg);
+
+  /* Systeem overig */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -25,7 +35,6 @@
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
-  --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -39,6 +48,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -61,17 +71,47 @@
   }
 }
 
+/* ==========================================================================
+   LIGHT MODE TOKENS (Wit scherm, Zwarte knoppen, Witte tekst op knoppen)
+   ========================================================================== */
 :root {
   --background: #ffffff;
   --foreground: #0a0a0a;
   --border: rgba(0, 0, 0, 0.06);
   --radius: 0.75rem;
+
+  /* Knop & Container specifieke instellingen */
+  --btn-bg: #000000;
+  --btn-text: #ffffff;
+  --btn-hover: #1a1a1a;
+  --container-bg: #f5f5f7; /* Zachte iOS-style grijze achtergrond voor invoervelden/kaarten */
 }
 
+/* ==========================================================================
+   DARK MODE TOKENS (Donkergrijs scherm, Witte knoppen, Zwarte tekst op knoppen)
+   ========================================================================== */
 .dark {
-  --background: #000000;
+  --background: #121212; /* Mooi mat donkergrijs, niet pikzwart */
   --foreground: #f5f5f5;
-  --border: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.08);
+
+  /* Knoppen draaien hier automatisch om! */
+  --btn-bg: #ffffff;
+  --btn-text: #000000;
+  --btn-hover: #e5e5e5;
+  --container-bg: #1e1e1e; /* Iets lichtere container op de donkere achtergrond */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #121212;
+    --foreground: #f5f5f5;
+    --border: rgba(255, 255, 255, 0.08);
+    --btn-bg: #ffffff;
+    --btn-text: #000000;
+    --btn-hover: #e5e5e5;
+    --container-bg: #1e1e1e;
+  }
 }
 
 @layer base {
@@ -83,12 +123,14 @@
   }
 }
 
-/* 🛑 REVOLUTIE TEGEN OVERTOLLIGE CARDS & RANDEN */
-/* Als de pagina al om de content draait, slaan we dubbele kaders en schaduwen plat */
-.card, [class*="rounded-xl"], [class*="border-neutral-100"] {
-  background-color: transparent !important;
-  box-shadow: none !important;
+/* ⚡ REVOLUTIE TEGEN OVERTOLLIGE CARDS - GECORRIGEERD EN VEILIG */
+.card, [class*="border-border"] {
   border-color: var(--border) !important;
+}
+/* Inputs en containers gebruiken nu de gecentraliseerde token i.p.v. hardcoded wit */
+input, select, textarea {
+  background-color: var(--container-bg) !important;
+  color: var(--foreground) !important;
 }
 
 /* Voorkom iOS auto-zoom op inputs */
@@ -104,47 +146,33 @@ html, body {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   overflow-x: hidden;
-  /* Rustige, gecontroleerde scroll (minder losse scroll-achtigheid) */
   scroll-behavior: smooth;
   overscroll-behavior-y: none;
 }
 
 /* ==========================================================================
-   NATIVE THEMED STATUS BARS (DYNAMIC ISLAND & BOTTOM BAR)
+   NATIVE LAYOUT COMPONENTS (HEADER & BOTTOM BAR)
    ========================================================================== */
-
-/* 1. DYNAMIC ISLAND BAR (Schakelt naadloos mee met wit/zwart theme) */
-
-
-/* 1. DYNAMIC ISLAND HARD COATED BACKGROUND */
 .native-header {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
   width: 100vw !important;
-  z-index: 99999 !important; /* Forceer boven ALLES */
+  z-index: 99999 !important;
   display: flex !important;
   align-items: center !important;
-  
-  /* We verhogen de vaste padding en hoogte aanzienlijk */
   padding-top: calc(env(safe-area-inset-top) + 8px) !important;
   height: calc(env(safe-area-inset-top) + 64px) !important;
-  
-  /* Geen doorzichtigheid, geen blur: keiharde themakleur */
   background: var(--background) !important;
   border-b: 1px solid var(--border) !important;
   opacity: 1 !important;
 }
 
-/* Duw de content keihard naar beneden zodat het NOOIT onder het eiland begint */
 main {
   padding-top: calc(env(safe-area-inset-top) + 80px) !important;
 }
 
-/* 2. ONDERSTE NAVIGATIEBALK EXTRA HOOG */
-/* 2. ONDERSTE NAVIGATIEBALK EXTRA HOOG */
-/* 2. ONDERSTE NAVIGATIEBALK (INSTAGRAM POSITIONERING) */
 .native-bottom-bar {
   position: fixed !important;
   bottom: 0 !important;
@@ -152,19 +180,12 @@ main {
   right: 0 !important;
   width: 100vw !important;
   z-index: 40 !important;
-  
   display: flex !important;
-  align-items: center !important; /* Centreert iconen perfect verticaal */
+  align-items: center !important;
   justify-content: space-around !important;
-  
-  /* Harde, compacte basishoogte (net als Instagram) */
   height: 49px !important; 
-  
-  /* Voegt dynamisch de extra ruimte toe voor iPhones met een home indicator strip */
   padding-bottom: env(safe-area-inset-bottom) !important; 
-  /* Zorgt dat de totale hoogte meegroeit met de safe area zonder de iconen te liften */
   box-sizing: content-box !important; 
-  
   background: var(--background) !important;
   border-t: 1px solid var(--border) !important;
 }
@@ -174,38 +195,16 @@ main {
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
-  height: 100% !important; /* Vult de 49px basishoogte perfect uit */
-  transform: none !important; /* Verwijdert alle oude handmatige transform-omhoog-pushes */
-}
-
-
-
-main {
-  padding-top: calc(env(safe-area-inset-top) + 56px) !important;
-}
-
-
-
-/* De knop-containers zelf */
-.native-nav-link {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 44px;
+  height: 100% !important;
   color: var(--foreground);
   opacity: 0.6;
 }
 
-.native-nav-link[class*="text-black"], .native-nav-link[data-active="true"] {
+.native-nav-link[class*="text-foreground"], .native-nav-link[data-active="true"] {
   opacity: 1 !important;
 }
 
-/* 3. POP-UPS & DIALOGS (HOGER GEPLAATST OP HET SCHERM) */
-/* Push modals en sheets omhoog zodat ze niet tegen de onderkant plakken */
-[role="dialog"], [class*="fixed bottom-0"] {
-  bottom: 12% !important; /* Tilt pop-ups/sheets direct een flink stuk omhoog */
-  border-radius: var(--radius) !important;
+[role="dialog"] {
   background-color: var(--background) !important;
   color: var(--foreground) !important;
   border: 1px solid var(--border) !important;

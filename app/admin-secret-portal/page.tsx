@@ -52,9 +52,9 @@ export default function AdminSecretPortal() {
             placeholder="Voer dev-wachtwoord in" 
             value={passwordInput} 
             onChange={(e) => setPasswordInput(e.target.value)} 
-            className="w-full bg-black text-white p-3 rounded-xl text-xs border border-neutral-800 outline-none text-center tracking-widest"
+            className="w-full bg-btn-bg text-btn-text p-3 rounded-xl text-xs border border-neutral-800 outline-none text-center tracking-widest"
           />
-          <button type="submit" className="w-full bg-white text-black py-2.5 rounded-xl text-xs font-bold transition active:scale-95">
+          <button type="submit" className="w-full bg-container-bg text-foreground py-2.5 rounded-xl text-xs font-bold transition active:scale-95">
             Unlock Database View
           </button>
         </form>
@@ -63,14 +63,14 @@ export default function AdminSecretPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 p-6 font-sans">
+    <div className="min-h-screen bg-background p-6 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between border-b border-neutral-200 pb-4">
+        <div className="flex items-center justify-between border-b border-border pb-4">
           <div>
-            <h1 className="text-2xl font-black text-neutral-900">Project Master Control</h1>
+            <h1 className="text-2xl font-black text-foreground">Project Master Control</h1>
             <p className="text-xs text-neutral-500 font-medium">Overzicht van alle geregistreerde studentenaccounts</p>
           </div>
-          <button onClick={() => window.location.reload()} className="bg-black text-white text-xs font-bold px-3 py-2 rounded-lg">
+          <button onClick={() => window.location.reload()} className="bg-btn-bg text-btn-text text-xs font-bold px-3 py-2 rounded-lg">
             Refresh Data
           </button>
         </div>
@@ -78,11 +78,11 @@ export default function AdminSecretPortal() {
         {loading ? (
           <p className="text-xs text-neutral-500">Gegevens inladen...</p>
         ) : (
-          <div className="bg-white rounded-2xl border border-neutral-200/60 shadow-xs overflow-hidden">
+          <div className="bg-container-bg rounded-2xl border border-border/60 shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-neutral-50 border-b border-neutral-200 text-neutral-500 font-bold">
+                  <tr className="bg-background border-b border-border text-neutral-500 font-bold">
                     <th className="p-3">Avatar</th>
                     <th className="p-3">Display Name</th>
                     <th className="p-3">User ID (Auth Link)</th>
@@ -92,7 +92,7 @@ export default function AdminSecretPortal() {
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
                   {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-neutral-50/80 transition-colors">
+                    <tr key={u.id} className="hover:bg-background/80 transition-colors">
                       <td className="p-3">
                         <img 
                           src={u.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${u.id}`} 

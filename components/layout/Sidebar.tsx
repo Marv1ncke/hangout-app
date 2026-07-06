@@ -88,23 +88,23 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-full md:w-72 h-full border-r border-neutral-100 bg-white flex flex-col">
-      <div className="p-5 border-b border-neutral-100 space-y-4">
-        <div className="font-black text-2xl tracking-tight text-neutral-900">Hangout.</div>
+    <aside className="w-full md:w-72 h-full border-r border-border bg-container-bg flex flex-col">
+      <div className="p-5 border-b border-border space-y-4">
+        <div className="font-black text-2xl tracking-tight text-foreground">Hangout.</div>
 
         <div className="relative">
           <button
             onClick={() => setOpenGroups((v) => !v)}
-            className="w-full rounded-2xl border border-neutral-200/60 bg-neutral-50 px-4 py-3.5 text-left active:scale-95 transition-all flex flex-col"
+            className="w-full rounded-2xl border border-border/60 bg-background px-4 py-3.5 text-left active:scale-95 transition-all flex flex-col"
           >
             <div className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Huidige Groep</div>
-            <div className="font-bold text-neutral-900 text-sm truncate">
+            <div className="font-bold text-foreground text-sm truncate">
               {groupName || "Geen groep geselecteerd"}
             </div>
           </button>
 
           {openGroups && (
-            <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-neutral-100 bg-white shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+            <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl border border-border bg-container-bg shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
               {groups.length === 0 ? (
                 <div className="px-3 py-4 text-sm font-medium text-neutral-400 text-center">
                   Je zit nog in geen enkele groep.
@@ -116,7 +116,7 @@ export function Sidebar() {
                     onClick={() => chooseGroup(group)}
                     className={cn(
                       "w-full text-left rounded-xl px-4 py-3.5 text-sm font-bold transition-colors active:bg-neutral-100",
-                      groupId === group.id ? "bg-neutral-100 text-black" : "text-neutral-600 hover:bg-neutral-50"
+                      groupId === group.id ? "bg-neutral-100 text-foreground" : "text-neutral-600 hover:bg-background"
                     )}
                   >
                     {group.name}
@@ -140,8 +140,8 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all",
                 active
-                  ? "bg-black text-white shadow-sm font-bold"
-                  : "hover:bg-neutral-50 text-neutral-600 font-medium active:bg-neutral-100"
+                  ? "bg-btn-bg text-btn-text shadow-sm font-bold"
+                  : "hover:bg-background text-neutral-600 font-medium active:bg-neutral-100"
               )}
             >
               <Icon size={22} strokeWidth={active ? 2.5 : 2} />
@@ -151,7 +151,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-5 text-[11px] font-bold text-neutral-300 uppercase tracking-widest border-t border-neutral-100">
+      <div className="p-5 text-[11px] font-bold text-neutral-300 uppercase tracking-widest border-t border-border">
         MVP v0.2 • Apple Style
       </div>
     </aside>

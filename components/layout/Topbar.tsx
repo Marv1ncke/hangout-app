@@ -8,7 +8,7 @@ export function Topbar() {
   const { openModal } = useModal();
 
   return (
-    <header className="h-14 border-b bg-white flex items-center justify-between px-6">
+    <header className="h-14 border-b bg-container-bg flex items-center justify-between px-6">
       <div className="text-sm font-medium">Your Workspace</div>
 
       <Button size="sm" onClick={() => openModal()} className="gap-2">

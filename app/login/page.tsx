@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -37,8 +39,6 @@ export default function LoginPage() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/update-password`,
     });
-
-
 
     setLoading(false);
     if (error) {
@@ -119,8 +119,8 @@ export default function LoginPage() {
   // --- RENDER FORGOT PASSWORD VIEW ---
   if (mode === "forgot") {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl border bg-container-bg p-6 shadow-sm">
           <div className="mb-6">
             <h1 className="text-2xl font-bold">Reset your password</h1>
             <p className="mt-1 text-sm text-neutral-500">
@@ -154,12 +154,13 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* ⚡ AANGEPAST: GECORRIGEERDE DYNAMISCHE RESET KNOP */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-black px-4 py-3 text-white font-medium disabled:opacity-60"
+              className="w-full bg-btn-bg text-btn-text text-xs font-black p-4 rounded-xl active:scale-98 transition-all hover:bg-neutral-900 mt-4 tracking-tight cursor-pointer text-center disabled:opacity-50"
             >
-              {loading ? "Please wait..." : "Send Reset Link"}
+              {loading ? "Wacht even..." : "Wachtwoord herstellink sturen ✉️"}
             </button>
           </form>
 
@@ -171,7 +172,7 @@ export default function LoginPage() {
                 setErrorText("");
                 setMessage("");
               }}
-              className="font-medium text-black underline underline-offset-2"
+              className="font-medium text-foreground underline underline-offset-2"
             >
               Back to log in
             </button>
@@ -183,8 +184,8 @@ export default function LoginPage() {
 
   // --- RENDER STANDARD LOGIN / REGISTER VIEW ---
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl border bg-container-bg p-6 shadow-sm">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">
             {mode === "login" ? "Welcome back" : "Create your account"}
@@ -205,6 +206,7 @@ export default function LoginPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Markus"
+                required={mode === "register"}
               />
             </div>
           )}
@@ -218,6 +220,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              required
             />
           </div>
 
@@ -232,7 +235,7 @@ export default function LoginPage() {
                     setErrorText("");
                     setMessage("");
                   }}
-                  className="text-xs text-neutral-500 hover:text-black underline underline-offset-2"
+                  className="text-xs text-neutral-500 hover:text-foreground underline underline-offset-2"
                 >
                   Forgot password?
                 </button>
@@ -245,6 +248,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              required
             />
           </div>
 
@@ -260,17 +264,26 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-black px-4 py-3 text-white font-medium disabled:opacity-60"
-          >
-            {loading
-              ? "Please wait..."
-              : mode === "login"
-              ? "Log in"
-              : "Create account"}
-          </button>
+          {/* ⚡ AANGEPAST: DYNAMISCHE SUBMIT KNOPPEN VOLLEDIG ONDERAAN HET FORMULIER */}
+          <div className="pt-2">
+            {mode === "login" ? (
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-btn-bg text-btn-text text-xs font-black p-4 rounded-xl active:scale-98 transition-all hover:bg-neutral-900 tracking-tight cursor-pointer text-center disabled:opacity-50"
+              >
+                {loading ? "Inloggen..." : "Inloggen in Hangout 🚀"}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-btn-bg text-btn-text text-xs font-black p-4 rounded-xl active:scale-98 transition-all hover:bg-neutral-900 tracking-tight cursor-pointer text-center disabled:opacity-50"
+              >
+                {loading ? "Account aanmaken..." : "Account aanmaken & meedoen ✨"}
+              </button>
+            )}
+          </div>
         </form>
 
         <div className="mt-5 text-center text-sm text-neutral-600">
@@ -282,7 +295,7 @@ export default function LoginPage() {
               setErrorText("");
               setMessage("");
             }}
-            className="font-medium text-black underline underline-offset-2"
+            className="font-medium text-foreground underline underline-offset-2"
           >
             {mode === "login" ? "Register" : "Log in"}
           </button>
@@ -291,6 +304,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-
-// Force deployment token sync trigger: 2026-07-03

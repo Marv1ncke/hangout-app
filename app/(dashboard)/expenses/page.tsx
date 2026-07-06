@@ -185,7 +185,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-6 select-none animate-in fade-in">
-      <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+      <div className="flex items-center justify-between border-b border-border pb-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight">Kosten Pot</h1>
           <p className="text-xs font-bold text-neutral-400 mt-0.5">Wie moet wat aan wie? Splitwise, live in je app.</p>
@@ -205,7 +205,7 @@ export default function ExpensesPage() {
               triggerHaptic(15);
               setShowAddSheet(true);
             }}
-            className="px-3.5 py-2 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition flex items-center gap-1"
+            className="px-3.5 py-2 bg-btn-bg text-btn-text text-xs font-bold rounded-xl active:scale-95 transition flex items-center gap-1"
           >
             <Plus size={14} /> Uitgave Toevoegen
           </button>
@@ -214,7 +214,7 @@ export default function ExpensesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Balansen per lid */}
-        <div className="bg-white border border-neutral-100 p-4 rounded-2xl space-y-3">
+        <div className="bg-container-bg border border-border p-4 rounded-2xl space-y-3">
           <h3 className="text-[10px] font-extrabold uppercase text-neutral-400 tracking-wider">Huidige Maandbalans</h3>
           <div className="space-y-2">
             {groupMembers.map((m: any) => {
@@ -251,12 +251,12 @@ export default function ExpensesPage() {
               {suggestedTransfers.map((t: any, idx: number) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between bg-white/5 border border-white/10 p-2.5 rounded-xl text-xs font-bold"
+                  className="flex items-center justify-between bg-container-bg/5 border border-white/10 p-2.5 rounded-xl text-xs font-bold"
                 >
                   <span className="truncate max-w-[90px] text-neutral-300">
                     {t.from?.full_name?.split(" ")[0] || "Lid"}
                   </span>
-                  <div className="flex flex-col items-center mx-1 px-2 py-0.5 rounded bg-white/10 text-[9px] text-neutral-200 uppercase tracking-tight">
+                  <div className="flex flex-col items-center mx-1 px-2 py-0.5 rounded bg-container-bg/10 text-[9px] text-neutral-200 uppercase tracking-tight">
                     <span>betaalt €{t.amount.toFixed(2)}</span>
                     <ArrowRight size={10} className="mt-0.5" />
                   </div>
@@ -276,7 +276,7 @@ export default function ExpensesPage() {
           Lopende Uitgaven deze periode
         </h2>
         {expenses.length === 0 ? (
-          <p className="text-xs font-bold text-neutral-400 p-8 bg-neutral-50 rounded-2xl border border-neutral-100 text-center">
+          <p className="text-xs font-bold text-neutral-400 p-8 bg-background rounded-2xl border border-border text-center">
             Geen openstaande kosten.
           </p>
         ) : (
@@ -286,15 +286,15 @@ export default function ExpensesPage() {
               return (
                 <div
                   key={exp.id}
-                  className="flex items-center justify-between bg-white border border-neutral-100 p-3 rounded-xl shadow-3xs"
+                  className="flex items-center justify-between bg-container-bg border border-border p-3 rounded-xl shadow-3xs"
                 >
                   <div>
-                    <p className="text-xs font-black text-neutral-900">{exp.description}</p>
+                    <p className="text-xs font-black text-foreground">{exp.description}</p>
                     <p className="text-[10px] text-neutral-400 font-bold mt-0.5">
                       Betaald door {payer ? payer.full_name : "Onbekend"}
                     </p>
                   </div>
-                  <span className="text-xs font-black text-neutral-950 bg-neutral-50 px-2.5 py-1.5 rounded-xl border border-neutral-100">
+                  <span className="text-xs font-black text-neutral-950 bg-background px-2.5 py-1.5 rounded-xl border border-border">
                     €{Number(exp.amount).toFixed(2)}
                   </span>
                 </div>
@@ -307,9 +307,9 @@ export default function ExpensesPage() {
       {/* MODAL SHEET */}
       {showAddSheet && (
         <div className="fixed inset-0 z-[999] bg-black/20 backdrop-blur-xl flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
-              <h2 className="text-xs font-black text-neutral-900">Uitgave toevoegen</h2>
+          <div className="bg-container-bg w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-in slide-in-from-bottom-4">
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <h2 className="text-xs font-black text-foreground">Uitgave toevoegen</h2>
               <button onClick={() => setShowAddSheet(false)} className="text-xs font-bold text-neutral-400">
                 Sluiten
               </button>
@@ -324,7 +324,7 @@ export default function ExpensesPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   required
-                  className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none font-bold"
+                  className="w-full bg-background border border-border p-2.5 rounded-xl text-xs outline-none font-bold"
                 />
               </div>
 
@@ -339,7 +339,7 @@ export default function ExpensesPage() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     required
-                    className="w-full bg-neutral-50 border border-neutral-100 pl-7 pr-4 p-2.5 rounded-xl text-xs outline-none font-black text-neutral-950"
+                    className="w-full bg-background border border-border pl-7 pr-4 p-2.5 rounded-xl text-xs outline-none font-black text-neutral-950"
                   />
                 </div>
               </div>
@@ -350,7 +350,7 @@ export default function ExpensesPage() {
                   <select
                     value={payerId}
                     onChange={(e) => setPayerId(e.target.value)}
-                    className="w-full bg-neutral-50 border border-neutral-100 p-2.5 rounded-xl text-xs outline-none font-bold text-neutral-800 pr-10 appearance-none"
+                    className="w-full bg-background border border-border p-2.5 rounded-xl text-xs outline-none font-bold text-neutral-800 pr-10 appearance-none"
                   >
                     {groupMembers.map((m: any) => (
                       <option key={m.id} value={m.id}>
@@ -363,7 +363,7 @@ export default function ExpensesPage() {
                     <button
                       type="button"
                       onClick={handlePickContact}
-                      className="absolute right-2 p-1.5 text-neutral-500 hover:text-black active:scale-90 transition"
+                      className="absolute right-2 p-1.5 text-neutral-500 hover:text-foreground active:scale-90 transition"
                       title="Kies uit je iPhone/Android contacten"
                     >
                       <UserPlus size={16} />
@@ -374,7 +374,7 @@ export default function ExpensesPage() {
 
               <button
                 type="submit"
-                className="w-full bg-black text-white p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2"
+                className="w-full bg-btn-bg text-btn-text p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2"
               >
                 Kosten splitsen 💸
               </button>

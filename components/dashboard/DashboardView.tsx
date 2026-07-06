@@ -208,7 +208,7 @@ export function DashboardView() {
   if (!groupId) {
     return (
       <div className="max-w-5xl mx-auto space-y-4 p-4 md:p-8">
-        <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border bg-container-bg p-6 shadow-sm">
           <h1 className="text-2xl font-bold">Welcome to Hangout</h1>
           <p className="text-sm text-neutral-500 mt-2">
             Open or create a workspace group using your sidebar layout interface to start tracking calendar syncs and event items together.
@@ -230,7 +230,7 @@ export function DashboardView() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border bg-white p-5 space-y-4 shadow-sm">
+        <div className="rounded-2xl border bg-container-bg p-5 space-y-4 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-sm text-neutral-500">Next hangout</div>
@@ -255,7 +255,7 @@ export function DashboardView() {
 
             <button
               onClick={() => openModal()}
-              className="rounded-xl bg-black text-white px-4 py-2 text-sm transition-colors hover:bg-neutral-800"
+              className="rounded-xl bg-btn-bg text-btn-text px-4 py-2 text-sm transition-colors hover:bg-neutral-800"
             >
               New hangout
             </button>
@@ -263,15 +263,15 @@ export function DashboardView() {
 
           {upcomingEvent && (
             <div className="grid md:grid-cols-3 gap-3 pt-2">
-              <div className="rounded-2xl bg-neutral-50 border p-4">
+              <div className="rounded-2xl bg-background border p-4">
                 <div className="text-sm text-neutral-500">Votes received</div>
                 <div className="text-2xl font-bold mt-1">{eventStats.voteCount}</div>
               </div>
-              <div className="rounded-2xl bg-neutral-50 border p-4">
+              <div className="rounded-2xl bg-background border p-4">
                 <div className="text-sm text-neutral-500">Still need votes</div>
                 <div className="text-2xl font-bold mt-1">{eventStats.unresolvedVotes}</div>
               </div>
-              <div className="rounded-2xl bg-neutral-50 border p-4">
+              <div className="rounded-2xl bg-background border p-4">
                 <div className="text-sm text-neutral-500">Unclaimed items</div>
                 <div className="text-2xl font-bold mt-1">{eventStats.missingItems}</div>
               </div>
@@ -279,7 +279,7 @@ export function DashboardView() {
           )}
         </div>
 
-        <div className="rounded-2xl border bg-white p-5 space-y-4 shadow-sm">
+        <div className="rounded-2xl border bg-container-bg p-5 space-y-4 shadow-sm">
           <div>
             <div className="text-sm text-neutral-500">Best free slot today</div>
             {bestFreeSlotToday ? (
@@ -300,7 +300,7 @@ export function DashboardView() {
           <div className="grid gap-2">
             <button
               onClick={() => openModal()}
-              className="rounded-xl border px-4 py-2 text-left font-medium transition-colors hover:bg-neutral-50"
+              className="rounded-xl border px-4 py-2 text-left font-medium transition-colors hover:bg-background"
             >
               + Create a hangout
             </button>
@@ -308,7 +308,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border bg-container-bg p-5 shadow-sm">
         <div className="mb-4">
           <h2 className="font-semibold">Planning inbox</h2>
           <p className="text-sm text-neutral-500">
@@ -325,7 +325,7 @@ export function DashboardView() {
             planningIssues.map((issue) => (
               <div
                 key={issue.id}
-                className="rounded-2xl border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-neutral-50/50"
+                className="rounded-2xl border p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-background/50"
               >
                 <div>
                   <div className="font-medium">{issue.title}</div>

@@ -318,7 +318,7 @@ await supabase
       {toast && (
         <div className="fixed bottom-20 left-4 right-4 z-[10000] flex justify-center pointer-events-none">
           <div className="bg-neutral-900/95 border border-white/10 text-white w-full max-w-sm rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl flex items-center space-x-3 pointer-events-auto">
-            <div className="bg-white/10 h-8 w-8 rounded-full flex items-center justify-center text-sm shrink-0">💬</div>
+            <div className="bg-container-bg/10 h-8 w-8 rounded-full flex items-center justify-center text-sm shrink-0">💬</div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold tracking-tight text-neutral-50">{toast.message}</p>
               {toast.sub && <p className="text-[10px] text-neutral-400 mt-0.5 truncate">{toast.sub}</p>}
@@ -328,14 +328,14 @@ await supabase
       )}
 
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-100/60 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-neutral-900">Groepen</h1>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">Groepen</h1>
           <p className="text-xs font-bold text-neutral-400 mt-0.5">Tik op een kaart om die groep direct te activeren.</p>
         </div>
         <div className="flex gap-2 shrink-0">
           <button onClick={() => setShowJoinSheet(true)} className="px-3.5 py-2 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-xl active:scale-95 transition cursor-pointer">Code Invullen</button>
-          <button onClick={() => setShowCreateSheet(true)} className="px-3.5 py-2 bg-black text-white text-xs font-bold rounded-xl active:scale-95 transition cursor-pointer">+ Nieuwe Groep</button>
+          <button onClick={() => setShowCreateSheet(true)} className="px-3.5 py-2 bg-btn-bg text-btn-text text-xs font-bold rounded-xl active:scale-95 transition cursor-pointer">+ Nieuwe Groep</button>
         </div>
       </div>
 
@@ -344,7 +344,7 @@ await supabase
         <h2 className="text-[11px] font-extrabold text-neutral-400 uppercase tracking-wider px-1">Mijn Vriendengroepen ({groups.length})</h2>
         
         {groups.length === 0 ? (
-          <div className="bg-neutral-50 rounded-2xl p-8 text-center border border-neutral-100/40">
+          <div className="bg-background rounded-2xl p-8 text-center border border-border/40">
             <p className="text-sm text-neutral-400 font-bold">Je bent nog geen lid van een actieve vriendengroep.</p>
           </div>
         ) : (
@@ -356,12 +356,12 @@ await supabase
                   key={g.id} 
                   onClick={() => handleSelectActiveGroup(g.id)}
                   className={`border p-5 rounded-2xl shadow-3xs flex flex-col justify-between gap-4 transition-all cursor-pointer relative ${
-                    isActive ? "bg-neutral-900 text-white border-neutral-900 shadow-md" : "bg-white border-neutral-100 hover:border-neutral-200 text-neutral-900"
+                    isActive ? "bg-neutral-900 text-white border-neutral-900 shadow-md" : "bg-container-bg border-border hover:border-border text-foreground"
                   }`}
                 >
                   {/* Active Indicator Checkmark */}
                   {isActive && (
-                    <div className="absolute top-4 right-4 bg-white/20 p-1 rounded-full text-white">
+                    <div className="absolute top-4 right-4 bg-container-bg/20 p-1 rounded-full text-white">
                       <Check size={14} strokeWidth={3} />
                     </div>
                   )}
@@ -370,20 +370,20 @@ await supabase
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-black text-lg tracking-tight">{g.name}</h3>
                       <span className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-md ${
-                        isActive ? "bg-white/10 text-neutral-200" : "bg-neutral-100 text-neutral-500"
+                        isActive ? "bg-container-bg/10 text-neutral-200" : "bg-neutral-100 text-neutral-500"
                       }`}>
                         {g.is_protected ? "🔒 Privé" : "🔓 Open"}
                       </span>
                     </div>
                     <p className={`text-[11px] font-medium ${isActive ? "text-neutral-400" : "text-neutral-400"}`}>
-                      Code: <code className={`font-mono font-bold px-1 py-0.5 rounded ${isActive ? "bg-white/10 text-white" : "bg-neutral-50 text-neutral-700"}`}>{g.join_code}</code>
+                      Code: <code className={`font-mono font-bold px-1 py-0.5 rounded ${isActive ? "bg-container-bg/10 text-white" : "bg-background text-neutral-700"}`}>{g.join_code}</code>
                     </p>
                   </div>
 
                   <div className={`flex items-center justify-between w-full pt-3 border-t ${isActive ? "border-white/10" : "border-neutral-50"}`} onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1.5">
-                      <button onClick={() => openMembersList(g)} className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition cursor-pointer ${isActive ? "bg-white/10 text-white hover:bg-white/20" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200/70"}`}>Leden</button>
-                      <button onClick={() => { setSelectedGroup(g); setEditGroupNameInput(g.name); setShowEditSheet(true); }} className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition cursor-pointer ${isActive ? "bg-white/10 text-white hover:bg-white/20" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200/70"}`}>Bewerk</button>
+                      <button onClick={() => openMembersList(g)} className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition cursor-pointer ${isActive ? "bg-container-bg/10 text-white hover:bg-container-bg/20" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200/70"}`}>Leden</button>
+                      <button onClick={() => { setSelectedGroup(g); setEditGroupNameInput(g.name); setShowEditSheet(true); }} className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition cursor-pointer ${isActive ? "bg-container-bg/10 text-white hover:bg-container-bg/20" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200/70"}`}>Bewerk</button>
                     </div>
                     <button onClick={() => handleLeaveGroupTrigger(g)} className="text-[11px] font-bold text-red-500 hover:bg-red-50/10 px-2.5 py-1.5 rounded-xl transition cursor-pointer">Verlaat</button>
                   </div>
@@ -397,21 +397,21 @@ await supabase
       {/* SHEET A: NIEUWE GROEP MAKEN */}
       {showCreateSheet && (
         <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <h2 className="text-sm font-black text-neutral-900">Groep Aanmaken</h2>
+          <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h2 className="text-sm font-black text-foreground">Groep Aanmaken</h2>
               <button onClick={() => setShowCreateSheet(false)} className="text-xs font-bold text-neutral-400 cursor-pointer">Annuleer</button>
             </div>
             <form onSubmit={handleCreateGroup} className="space-y-4">
-              <input type="text" placeholder="Groepsnaam" value={groupName} onChange={(e) => setGroupName(e.target.value)} required className="w-full bg-neutral-50 border p-3.5 rounded-xl text-xs outline-none text-neutral-900 font-bold" />
+              <input type="text" placeholder="Groepsnaam" value={groupName} onChange={(e) => setGroupName(e.target.value)} required className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold" />
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">Groepstype</label>
                 <div className="bg-neutral-100 p-1 rounded-xl flex">
-                  <button type="button" onClick={() => setIsProtected(false)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${!isProtected ? "bg-white text-black shadow-3xs" : "text-neutral-500"}`}>🔓 Open</button>
-                  <button type="button" onClick={() => setIsProtected(true)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${isProtected ? "bg-white text-black shadow-3xs" : "text-neutral-500"}`}>🔒 Gesloten</button>
+                  <button type="button" onClick={() => setIsProtected(false)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${!isProtected ? "bg-container-bg text-foreground shadow-3xs" : "text-neutral-500"}`}>🔓 Open</button>
+                  <button type="button" onClick={() => setIsProtected(true)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${isProtected ? "bg-container-bg text-foreground shadow-3xs" : "text-neutral-500"}`}>🔒 Gesloten</button>
                 </div>
               </div>
-              <button type="submit" className="w-full bg-black text-white p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Maak Groep</button>
+              <button type="submit" className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Maak Groep</button>
             </form>
           </div>
         </div>
@@ -420,14 +420,14 @@ await supabase
       {/* SHEET B: JOINEN VIA CODE */}
       {showJoinSheet && (
         <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <h2 className="text-sm font-black text-neutral-900">Deelnemen via Code</h2>
+          <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h2 className="text-sm font-black text-foreground">Deelnemen via Code</h2>
               <button onClick={() => setShowJoinSheet(false)} className="text-xs font-bold text-neutral-400 cursor-pointer">Annuleer</button>
             </div>
             <form onSubmit={handleJoinCodeSubmit} className="space-y-4">
-              <input type="text" placeholder="CODE12" value={joinCodeInput} onChange={(e) => setJoinCodeInput(e.target.value)} required className="w-full bg-neutral-50 border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-neutral-900" maxLength={6} />
-              <button type="submit" className="w-full bg-black text-white p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Deelnemen</button>
+              <input type="text" placeholder="CODE12" value={joinCodeInput} onChange={(e) => setJoinCodeInput(e.target.value)} required className="w-full bg-background border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-foreground" maxLength={6} />
+              <button type="submit" className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Deelnemen</button>
             </form>
           </div>
         </div>
@@ -435,21 +435,21 @@ await supabase
       
       {/* SHEET C: FULL SCREEN LEDENLIJST */}
       {showMembersSheet && (
-        <div className="fixed inset-0 z-[9999] bg-white flex flex-col animate-in slide-in-from-bottom duration-300">
-          <div className="pt-12 pb-4 px-6 border-b border-neutral-100 flex items-center justify-between shrink-0 bg-white">
+        <div className="fixed inset-0 z-[9999] bg-container-bg flex flex-col animate-in slide-in-from-bottom duration-300">
+          <div className="pt-12 pb-4 px-6 border-b border-border flex items-center justify-between shrink-0 bg-container-bg">
             <div>
-              <h2 className="text-xl font-black text-neutral-900 tracking-tight">{selectedGroup?.name}</h2>
+              <h2 className="text-xl font-black text-foreground tracking-tight">{selectedGroup?.name}</h2>
               <p className="text-xs font-bold text-neutral-400 mt-1">{selectedGroupMembers.length} Actieve Leden</p>
             </div>
             <button onClick={() => { setShowMembersSheet(false); setSelectedGroupMembers([]); }} className="bg-neutral-100 text-neutral-800 px-4 py-2 rounded-full text-xs font-bold">Sluiten</button>
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
             {selectedGroupMembers.map(m => (
-              <div key={m.user_id} className="flex items-center space-x-3 p-2.5 bg-neutral-50 rounded-xl">
+              <div key={m.user_id} className="flex items-center space-x-3 p-2.5 bg-background rounded-xl">
                 <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
                   <Image src={m.avatar_url} alt="Avatar" fill className="object-cover" unoptimized />
                 </div>
-                <p className="text-sm font-bold text-neutral-900">
+                <p className="text-sm font-bold text-foreground">
                   {m.full_name} {m.user_id === userId && <span className="ml-1 text-[9px] font-extrabold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">Jij</span>}
                 </p>
               </div>
@@ -461,14 +461,14 @@ await supabase
       {/* SHEET D: BEWERK GROEPSNAAM */}
       {showEditSheet && (
         <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/20 backdrop-blur-xl flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-              <h2 className="text-sm font-black text-neutral-900">Groepsnaam Wijzigen</h2>
+          <div className="bg-container-bg/90 border border-white/20 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h2 className="text-sm font-black text-foreground">Groepsnaam Wijzigen</h2>
               <button onClick={() => setShowEditSheet(false)} className="text-xs font-bold text-neutral-400 cursor-pointer">Annuleer</button>
             </div>
             <form onSubmit={handleEditGroupName} className="space-y-4">
-              <input type="text" value={editGroupNameInput} onChange={(e) => setEditGroupNameInput(e.target.value)} required className="w-full bg-neutral-50 border p-3.5 rounded-xl text-xs outline-none text-neutral-900 font-bold" />
-              <button type="submit" className="w-full bg-black text-white p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Opslaan</button>
+              <input type="text" value={editGroupNameInput} onChange={(e) => setEditGroupNameInput(e.target.value)} required className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold" />
+              <button type="submit" className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition">Opslaan</button>
             </form>
           </div>
         </div>
@@ -477,12 +477,12 @@ await supabase
       {/* SHEET E: LEAVE CONFIRMATION */}
       {showLeaveConfirmSheet && (
         <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/30 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs rounded-2xl shadow-2xl text-center overflow-hidden">
+          <div className="bg-container-bg w-full max-w-xs rounded-2xl shadow-2xl text-center overflow-hidden">
             <div className="p-5 space-y-1">
-              <h3 className="font-black text-neutral-900 text-sm">Groep verlaten?</h3>
+              <h3 className="font-black text-foreground text-sm">Groep verlaten?</h3>
               <p className="text-xs text-neutral-400 leading-normal">Weet je zeker dat je geen lid meer wilt zijn van {selectedGroup?.name}?</p>
             </div>
-            <div className="flex flex-col border-t border-neutral-100">
+            <div className="flex flex-col border-t border-border">
               <button onClick={() => selectedGroup && executeLeave(selectedGroup.id, false)} className="w-full py-3 text-xs font-bold text-red-500 border-b cursor-pointer">Verlaat Groep</button>
               <button onClick={() => setShowLeaveConfirmSheet(false)} className="w-full py-3 text-xs font-bold text-neutral-800 cursor-pointer">Annuleer</button>
             </div>
@@ -493,12 +493,12 @@ await supabase
       {/* SHEET F: CRITICAL DELETE POPUP */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[999] w-screen h-screen bg-neutral-900/40 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs rounded-2xl shadow-2xl text-center overflow-hidden">
+          <div className="bg-container-bg w-full max-w-xs rounded-2xl shadow-2xl text-center overflow-hidden">
             <div className="p-5 space-y-1">
-              <h3 className="font-black text-neutral-900 text-sm">Groep verwijderen?</h3>
+              <h3 className="font-black text-foreground text-sm">Groep verwijderen?</h3>
               <p className="text-xs text-neutral-400 leading-normal">Je bent het laatste lid. Dit verwijdert alle agenda data permanent.</p>
             </div>
-            <div className="flex flex-col border-t border-neutral-100">
+            <div className="flex flex-col border-t border-border">
               <button onClick={() => selectedGroup && executeLeave(selectedGroup.id, true)} className="w-full py-3 text-xs font-bold text-red-500 border-b cursor-pointer">Permanent Verwijderen</button>
               <button onClick={() => setShowDeleteConfirm(false)} className="w-full py-3 text-xs font-bold text-neutral-800 cursor-pointer">Annuleer</button>
             </div>

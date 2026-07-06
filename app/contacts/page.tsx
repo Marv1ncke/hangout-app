@@ -122,21 +122,21 @@ export default function ContactsPage() {
             placeholder="Zoek vrienden op naam..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-neutral-50 border border-neutral-100 pl-9 pr-4 py-2 rounded-xl text-xs outline-none font-medium"
+            className="w-full bg-background border border-border pl-9 pr-4 py-2 rounded-xl text-xs outline-none font-medium"
           />
         </div>
-        <button type="submit" className="bg-black text-white px-4 py-2 rounded-xl text-xs font-bold">Zoeken</button>
+        <button type="submit" className="bg-btn-bg text-btn-text px-4 py-2 rounded-xl text-xs font-bold">Zoeken</button>
       </form>
 
       {/* ZOEKRESULTATEN */}
       {searchResults.length > 0 && (
-        <div className="bg-neutral-50 border border-neutral-100 p-3 rounded-2xl space-y-2">
+        <div className="bg-background border border-border p-3 rounded-2xl space-y-2">
           <p className="text-[10px] font-extrabold uppercase text-neutral-400 tracking-wider px-1">Resultaten</p>
           {searchResults.map((user) => (
-            <div key={user.id} className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-neutral-100">
+            <div key={user.id} className="flex items-center justify-between bg-container-bg p-2.5 rounded-xl border border-border">
               <div className="flex items-center space-x-2">
                 <img src={user.avatar_url} className="w-8 h-8 rounded-full object-cover" alt="" />
-                <span className="text-xs font-bold text-neutral-900">{user.full_name}</span>
+                <span className="text-xs font-bold text-foreground">{user.full_name}</span>
               </div>
               <button onClick={() => sendFriendRequest(user.id)} className="p-1.5 bg-neutral-900 text-white rounded-lg active:scale-95 transition">
                 <UserPlus size={14} />
@@ -152,12 +152,12 @@ export default function ContactsPage() {
           <h2 className="text-[10px] font-extrabold uppercase text-red-500 tracking-wider px-1">Vriendschapsverzoeken 🔥</h2>
           <div className="space-y-1.5">
             {pendingRequests.map((req) => (
-              <div key={req.id} className="flex items-center justify-between bg-neutral-50 p-3 rounded-xl border border-neutral-100/60">
+              <div key={req.id} className="flex items-center justify-between bg-background p-3 rounded-xl border border-border/60">
                 <div className="flex items-center space-x-2">
                   <img src={req.sender.avatar_url} className="w-8 h-8 rounded-full object-cover" alt="" />
-                  <span className="text-xs font-bold text-neutral-900">{req.sender.full_name}</span>
+                  <span className="text-xs font-bold text-foreground">{req.sender.full_name}</span>
                 </div>
-                <button onClick={() => acceptFriendRequest(req.id)} className="flex items-center space-x-1 px-3 py-1.5 bg-black text-white rounded-lg text-xs font-bold active:scale-95 transition">
+                <button onClick={() => acceptFriendRequest(req.id)} className="flex items-center space-x-1 px-3 py-1.5 bg-btn-bg text-btn-text rounded-lg text-xs font-bold active:scale-95 transition">
                   <Check size={12} /> <span>Accepteer</span>
                 </button>
               </div>
@@ -170,18 +170,18 @@ export default function ContactsPage() {
       <div className="space-y-2">
         <h2 className="text-[10px] font-extrabold uppercase text-neutral-400 tracking-wider px-1">Mijn Contacten ({contacts.length})</h2>
         {contacts.length === 0 ? (
-          <p className="text-xs font-bold text-neutral-400 p-4 bg-neutral-50 rounded-xl text-center">Nog geen contacten toegevoegd.</p>
+          <p className="text-xs font-bold text-neutral-400 p-4 bg-background rounded-xl text-center">Nog geen contacten toegevoegd.</p>
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {contacts.map((contact) => (
               <div 
                 key={contact.id} 
                 onClick={() => viewProfile(contact)}
-                className="flex items-center space-x-3 bg-white border border-neutral-100 p-3 rounded-2xl cursor-pointer hover:border-neutral-200 transition shadow-3xs"
+                className="flex items-center space-x-3 bg-container-bg border border-border p-3 rounded-2xl cursor-pointer hover:border-border transition shadow-3xs"
               >
-                <img src={contact.avatar_url} className="w-10 h-10 rounded-full object-cover border border-neutral-100" alt="" />
+                <img src={contact.avatar_url} className="w-10 h-10 rounded-full object-cover border border-border" alt="" />
                 <div className="overflow-hidden">
-                  <p className="text-xs font-bold text-neutral-900 truncate">{contact.full_name}</p>
+                  <p className="text-xs font-bold text-foreground truncate">{contact.full_name}</p>
                   <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Bekijk profiel</p>
                 </div>
               </div>
@@ -193,14 +193,14 @@ export default function ContactsPage() {
       {/* INTERACTIEF POP-UP PROFIEL (MODAL) */}
       {selectedProfile && (
         <div className="fixed inset-0 z-[999] bg-black/20 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-2xl relative animate-in zoom-in-95">
-            <button onClick={() => setSelectedProfile(null)} className="absolute top-4 right-4 text-neutral-400 hover:text-black">
+          <div className="bg-container-bg w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-2xl relative animate-in zoom-in-95">
+            <button onClick={() => setSelectedProfile(null)} className="absolute top-4 right-4 text-neutral-400 hover:text-foreground">
               <X size={18} />
             </button>
 
             <div className="flex flex-col items-center text-center space-y-2 pt-2">
-              <img src={selectedProfile.avatar_url} className="w-20 h-20 rounded-full object-cover border-2 border-neutral-100 shadow-sm" alt="" />
-              <h3 className="text-sm font-black text-neutral-900">{selectedProfile.full_name}</h3>
+              <img src={selectedProfile.avatar_url} className="w-20 h-20 rounded-full object-cover border-2 border-border shadow-sm" alt="" />
+              <h3 className="text-sm font-black text-foreground">{selectedProfile.full_name}</h3>
             </div>
 
             <div className="border-t border-neutral-50 pt-3 space-y-2">
@@ -212,7 +212,7 @@ export default function ContactsPage() {
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {mutualGroups.map((g, i) => (
-                    <span key={i} className="bg-neutral-50 text-neutral-800 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-neutral-100">
+                    <span key={i} className="bg-background text-neutral-800 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border">
                       👥 {g.name}
                     </span>
                   ))}

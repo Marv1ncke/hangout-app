@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     "?";
 
   return (
-    <div className="h-screen flex bg-neutral-50">
+    <div className="h-screen flex bg-background">
       <Sidebar />
 
       <div className="flex flex-col flex-1 min-w-0">
@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
 
-        <div className="border-t bg-white p-3">
+        <div className="border-t bg-container-bg p-3">
           <div className="flex justify-end relative">
             <button
               onClick={() => setOpen((v) => !v)}
@@ -78,14 +78,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   className="w-10 h-10 rounded-full object-cover border"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center text-sm font-semibold">
+                <div className="w-10 h-10 rounded-full bg-btn-bg text-btn-text flex items-center justify-center text-sm font-semibold">
                   {initials}
                 </div>
               )}
             </button>
 
             {open && (
-              <div className="absolute bottom-14 right-0 w-56 rounded-2xl border bg-white shadow-lg p-2 z-50">
+              <div className="absolute bottom-14 right-0 w-56 rounded-2xl border bg-container-bg shadow-lg p-2 z-50">
                 <Link
                   href="/profile"
                   className="block rounded-xl px-3 py-2 text-sm hover:bg-neutral-100"

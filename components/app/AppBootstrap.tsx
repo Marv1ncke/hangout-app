@@ -27,7 +27,7 @@ export default function AppBootstrap({
 
   if (!bootstrapped || loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-neutral-50 text-sm text-neutral-500">
+      <div className="flex h-screen items-center justify-center bg-background text-sm text-neutral-500">
         Loading Hangout...
       </div>
     );
