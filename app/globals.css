@@ -151,7 +151,6 @@ html, body {
   overscroll-behavior-y: none;
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
-  overflow: hidden;
 
 }
 
