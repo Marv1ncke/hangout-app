@@ -7,14 +7,16 @@ import AppBadgeRegistry from "@/components/AppBadgeRegistry";
 import PushNotificationRegistry from "@/components/providers/PushNotificationRegistry";
 import { AppProviders } from "../components/providers/AppProviders";
 import AppRegistry from "../components/AppRegistry";
+import ThemeListener from "@/components/ThemeListener";
 import "./globals.css";
 
+// 📱 Forceert iOS om de app-schaal te locken en voorkomt dat gebruikers per ongeluk in-zoomen
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: "cover",
+  viewportFit: "cover", // Zorgt dat de app onder de notch/Dynamic Island doorloopt
   themeColor: "#000000",
 };
 
@@ -23,9 +25,9 @@ export const metadata: Metadata = {
   description: "Jouw hangout app",
   manifest: "/manifest.webmanifest", 
   appleWebApp: {
-    capable: true,
-    title: "Hangout",
-    statusBarStyle: "black-translucent",
+    capable: true, // HIERMEE BLIJF JE IN DE APP EN GA JE NIET NAAR SAFARI
+    title: "Hangout", // Dwingt de app-naam af op het thuisscherm
+    statusBarStyle: "black-translucent", // Naadloze zwarte statusbalk integratie
   },
 };
 
@@ -36,16 +38,18 @@ export default function RootLayout({
 }) {
   return (
     <ViewTransitions>
-      {/* SuppressHydrationWarning voorkomt Next.js errors omdat we de class via JS injecteren in de <html> */}
       <html lang="en" className="antialiased" suppressHydrationWarning>
         <head>
+          {/* 🛑 DE HEILIGE DRIE-EENHEID VOOR MAXIMALE APPLE NATIVE VIBE */}
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
           <meta name="apple-mobile-web-app-title" content="Hangout" />
           <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+          
+          {/* Voorkomt dat iOS links buiten de PWA opent in Safari */}
           <meta name="mobile-web-app-capable" content="yes" />
 
-          {/* ⚡ THEMA PRE-LOAD SCRIPT */}
+          {/* ⚡ THEMA PRE-LOAD SCRIPT (Voorkomt witte flits bij opstarten) */}
           <script
             dangerouslySetInnerHTML={{
               __html: `
@@ -64,10 +68,9 @@ export default function RootLayout({
             }}
           />
         </head>
-        {/* ⚡ GEFIXT: bg-background/50 veranderd naar bg-background */}
         <body className="bg-background text-foreground overflow-x-hidden antialiased">
           <AppProviders>
-          <ThemeListener />
+            <ThemeListener />
             <AppRegistry />
             <NavigationLayout>
               {children}
@@ -80,22 +83,4 @@ export default function RootLayout({
       </html>
     </ViewTransitions>
   );
-}
-
-"use client";
-import { useEffect } from "react";
-
-export function ThemeListener() {
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => {
-      if ((localStorage.getItem("app-theme") || "system") === "system") {
-        document.documentElement.classList.toggle("dark", mq.matches);
-        document.documentElement.classList.toggle("light", !mq.matches);
-      }
-    };
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return null;
 }
