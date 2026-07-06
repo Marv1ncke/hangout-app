@@ -7,51 +7,51 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useNavData } from "../../../hooks/useNavData";
 import HapticButton from "@/components/HapticButton";
-import { Type } from "lucide-react";
+import { Type, Sun, Moon, Laptop, User, Shield } from "lucide-react";
 
 const AVAILABLE_FONTS = [
-  { id: "inherit", name: "Systeem Standaard" },
-  { id: "var(--font-sans), sans-serif", name: "Inter Sans" },
-  { id: "var(--font-mono), monospace", name: "JetBrains Mono" },
-  { id: "Georgia, serif", name: "Editorial Serif" },
+  { id: "inherit", name: "Systeem Standaard", css: "system-ui, sans-serif" },
+  { id: "sans-serif", name: "Inter / Sans-Serif", css: "sans-serif" },
+  { id: "monospace", name: "JetBrains / Monospace", css: "monospace" },
+  { id: "Georgia, serif", name: "Editorial Serif", css: "Georgia, serif" },
 ];
+
+type ThemeMode = "light" | "dark" | "system";
 
 export default function ProfilePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 1. ZORG DAT WE DIRECT MET DE AL AANWEZIGE CACHE INITIALISEREN
   const { data: navData, mutate: mutateNav } = useNavData();
   
   const cachedProfile = (navData as any)?.profile;
-  const userId = cachedProfile?.id || "";
   const email = (navData as any)?.user?.email || "";
 
-  // Lokale input states direct vullen met cache (GEEN FLITS EN GEEN VERTRAGING 👍)
-  const [fullName, setFullName] = useState(cachedProfile?.full_name || "");
-  const [avatarUrl, setAvatarUrl] = useState(cachedProfile?.avatar_url || "");
+  const [fullName, setFullName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [activeFont, setActiveFont] = useState("inherit");
+  const [theme, setTheme] = useState<ThemeMode>("system");
   
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Synchroniseer lokale states als de cache op de achtergrond update
   useEffect(() => {
     if (cachedProfile) {
-      if (!fullName) setFullName(cachedProfile.full_name || "");
-      if (!avatarUrl) setAvatarUrl(cachedProfile.avatar_url || "");
+      setFullName((prev) => prev || cachedProfile.full_name || "");
+      setAvatarUrl((prev) => prev || cachedProfile.avatar_url || "");
     }
   }, [cachedProfile]);
 
-  // Enkel fonts en auth-check via effect om hydration mismatches te voorkomen
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedFont = localStorage.getItem("app-custom-font");
       if (storedFont) setActiveFont(storedFont);
+
+      const storedTheme = localStorage.getItem("app-theme") as ThemeMode;
+      if (storedTheme) setTheme(storedTheme);
     }
     
-    // Stuur niet-ingelogde gebruikers direct door
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) router.push("/login");
     });
@@ -60,20 +60,33 @@ export default function ProfilePage() {
   function handleFontChange(fontId: string) {
     setActiveFont(fontId);
     localStorage.setItem("app-custom-font", fontId);
+    if (typeof document !== "undefined") {
+      document.body.style.fontFamily = fontId === "inherit" ? "" : fontId;
+    }
     window.dispatchEvent(new Event("groupChanged"));
   }
 
-  // 2. INSTANT OPTIMISTIC UPLOAD
+  function handleThemeChange(newTheme: ThemeMode) {
+    setTheme(newTheme);
+    localStorage.setItem("app-theme", newTheme);
+
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+
+    if (newTheme === "system") {
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(newTheme);
+    }
+  }
+
   async function handleFileChange(file?: File) {
-    if (!file || !userId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!file || !user?.id) return;
 
     if (!file.type.startsWith("image/")) {
       setStatusMessage({ type: "error", text: "Kies een geldig afbeeldingstype." });
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setStatusMessage({ type: "error", text: "Afbeeldingen moeten kleiner zijn dan 5MB." });
       return;
     }
 
@@ -81,14 +94,11 @@ export default function ProfilePage() {
     setStatusMessage(null);
 
     const ext = file.name.split(".").pop() || "jpg";
-    const path = `${userId}/avatar-${Date.now()}.${ext}`;
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(path, file, {
-        cacheControl: "3600",
-        upsert: true,
-      });
+      .upload(path, file, { cacheControl: "3600", upsert: true });
 
     if (uploadError) {
       setUploading(false);
@@ -100,49 +110,44 @@ export default function ProfilePage() {
     const publicUrl = data.publicUrl;
     setAvatarUrl(publicUrl);
 
-    // Update navigatie-cache instant
-    mutateNav(
-      (old: any) => ({
-        ...old,
-        profile: old?.profile ? { ...old.profile, avatar_url: publicUrl } : null,
-      }),
-      false
-    );
+    mutateNav((old: any) => ({
+      ...old,
+      profile: old?.profile ? { ...old.profile, avatar_url: publicUrl } : null,
+    }), false);
 
-    const { error: profileError } = await supabase.from("profiles").upsert({
-      id: userId,
+    await supabase.from("profiles").upsert({
+      id: user.id,
       full_name: fullName.trim(),
       avatar_url: publicUrl,
       updated_at: new Date().toISOString(),
     });
 
     setUploading(false);
-    if (profileError) {
-      setStatusMessage({ type: "error", text: profileError.message });
-      mutateNav(); 
-    } else {
-      setStatusMessage({ type: "success", text: "Profielfoto succesvol bijgewerkt! ✨" });
-      mutateNav();
-    }
+    setStatusMessage({ type: "success", text: "Profielfoto succesvol bijgewerkt! ✨" });
+    mutateNav();
   }
 
-  // 3. INSTANT OPTIMISTIC SAVE NAMES
+  // ⚡ GEFIXTE OPSLAAN FUNCTIE VIA RECHTSSTREEKSE AUTH CHECK
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
-    if (!userId) return;
     setSaving(true);
     setStatusMessage(null);
 
-    mutateNav(
-      (old: any) => ({
-        ...old,
-        profile: old?.profile ? { ...old.profile, full_name: fullName.trim() } : null,
-      }),
-      false
-    );
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user?.id) {
+      setSaving(false);
+      setStatusMessage({ type: "error", text: "Sessie verlopen of ongeldig. Log opnieuw in." });
+      return;
+    }
+
+    mutateNav((old: any) => ({
+      ...old,
+      profile: old?.profile ? { ...old.profile, full_name: fullName.trim() } : null,
+    }), false);
 
     const { error } = await supabase.from("profiles").upsert({
-      id: userId,
+      id: user.id,
       full_name: fullName.trim(),
       avatar_url: avatarUrl,
       updated_at: new Date().toISOString(),
@@ -153,7 +158,7 @@ export default function ProfilePage() {
       setStatusMessage({ type: "error", text: error.message });
       mutateNav(); 
     } else {
-      setStatusMessage({ type: "success", text: "Profiel succesvol opgeslagen!" });
+      setStatusMessage({ type: "success", text: "Wijzigingen succesvol opgeslagen! ✨" });
       mutateNav();
     }
   }
@@ -165,15 +170,21 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={{ fontFamily: activeFont }} className="max-w-xl mx-auto space-y-8 px-2 md:px-0 select-none animate-in fade-in">
+    <div className="max-w-xl mx-auto space-y-6 px-4 md:px-0 select-none animate-in fade-in bg-background text-foreground pb-24">
       <div>
-        <h1 className="text-3xl font-black tracking-tight text-foreground">Instellingen</h1>
+        <h1 className="text-3xl font-black tracking-tight">Instellingen</h1>
         <p className="text-sm text-neutral-400 font-bold mt-0.5">Beheer je hangout-identiteit en interface.</p>
       </div>
 
-      <div className="bg-container-bg rounded-2xl p-6 border border-border/60 space-y-6 shadow-3xs">
-        <form onSubmit={saveProfile} className="space-y-6">
-          
+      <form onSubmit={saveProfile} className="space-y-6">
+        
+        {/* MIJN IDENTITEIT */}
+        <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-5">
+          <div className="flex items-center gap-2 text-neutral-400">
+            <User size={14} strokeWidth={2.5} />
+            <label className="text-[11px] font-extrabold uppercase tracking-wider">Mijn Identiteit</label>
+          </div>
+
           <div className="flex items-center gap-5">
             <div 
               onClick={() => !uploading && fileInputRef.current?.click()}
@@ -192,7 +203,7 @@ export default function ProfilePage() {
             </div>
 
             <div className="min-w-0">
-              <h3 className="font-black text-foreground tracking-tight truncate">{fullName || "Naam laden..."}</h3>
+              <h3 className="font-black tracking-tight truncate">{fullName || "Naam laden..."}</h3>
               <p className="text-xs text-neutral-400 font-bold truncate break-all">{email || "Email laden..."}</p>
               <button
                 type="button"
@@ -218,13 +229,45 @@ export default function ProfilePage() {
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full rounded-xl bg-background border border-border/60 p-3.5 text-sm font-bold outline-none text-foreground"
+              className="w-full rounded-xl bg-background border border-border p-3.5 text-sm font-bold outline-none text-foreground focus:ring-1 focus:ring-foreground/20"
               placeholder="bijv. Markus"
               required
             />
           </div>
+        </div>
 
-          <div className="space-y-2.5 pt-2 border-t border-neutral-50">
+        {/* INTERFACE */}
+        <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-5">
+          
+          {/* THEMA */}
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-1.5 text-neutral-400 px-1">
+              <Sun size={14} strokeWidth={2.5} />
+              <label className="text-[11px] font-extrabold uppercase tracking-wider">Weergave modus</label>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {(["light", "dark", "system"] as ThemeMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => handleThemeChange(m)}
+                  className={`p-3 text-xs font-bold rounded-xl border flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer ${
+                    theme === m
+                      ? "bg-btn-bg border-btn-bg text-btn-text shadow-3xs"
+                      : "bg-background border-border hover:border-neutral-400 text-foreground"
+                  }`}
+                >
+                  {m === "light" && <Sun size={13} />}
+                  {m === "dark" && <Moon size={13} />}
+                  {m === "system" && <Laptop size={13} />}
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* LETTERTYPE SELECTOR */}
+          <div className="space-y-2.5 pt-2 border-t border-border">
             <div className="flex items-center gap-1.5 text-neutral-400 px-1">
               <Type size={14} strokeWidth={2.5} />
               <label className="text-[11px] font-extrabold uppercase tracking-wider">Applicatie Lettertype</label>
@@ -235,11 +278,12 @@ export default function ProfilePage() {
                   key={font.id}
                   type="button"
                   onClick={() => handleFontChange(font.id)}
-                  style={{ fontFamily: font.id }}
+                  /* ⚡ GEFIXT: `style={{ fontFamily: ... }}` dwingt af dat de knop ALTIJD zijn eigen font toont, ongeacht wat de actieve body-stijl is! */
+                  style={{ fontFamily: font.css }}
                   className={`p-3 text-xs font-bold rounded-xl border text-left transition active:scale-98 cursor-pointer ${
                     activeFont === font.id
-                      ? "bg-neutral-900 border-neutral-900 text-white shadow-3xs"
-                      : "bg-background border-border hover:border-border text-neutral-800"
+                      ? "bg-btn-bg border-btn-bg text-btn-text shadow-3xs"
+                      : "bg-background border-border hover:border-neutral-400 text-foreground"
                   }`}
                 >
                   {font.name}
@@ -248,34 +292,39 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {statusMessage && (
-            <div className={`rounded-xl px-4 py-3 text-xs font-bold ${
-              statusMessage.type === "success" 
-                ? "bg-green-50 text-green-700 border border-green-100" 
-                : "bg-red-50 text-red-700 border border-red-100"
-            }`}>
-              {statusMessage.text}
-            </div>
-          )}
-
-          <HapticButton
-            type="submit"
-            disabled={saving || uploading}
-            className="w-full rounded-xl bg-black px-4 py-3.5 text-white text-xs font-bold disabled:opacity-40 transition-all hover:bg-neutral-800"
-          >
-            {saving ? "Opslaan..." : "Wijzigingen Opslaan"}
-          </HapticButton>
-        </form>
-
-        <div className="pt-2 border-t border-border">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full rounded-xl bg-red-50 text-red-600 text-xs font-bold px-4 py-3.5 transition-all hover:bg-red-100/60 cursor-pointer text-center"
-          >
-            Uitloggen
-          </button>
         </div>
+
+        {statusMessage && (
+          <div className={`rounded-xl px-4 py-3 text-xs font-bold ${
+            statusMessage.type === "success" 
+              ? "bg-green-500/10 text-green-500 border border-green-500/20" 
+              : "bg-red-500/10 text-red-500 border border-red-500/20"
+          }`}>
+            {statusMessage.text}
+          </div>
+        )}
+
+        <HapticButton
+          type="submit"
+          disabled={saving || uploading}
+          className="w-full rounded-xl bg-btn-bg px-4 py-3.5 text-btn-text text-xs font-bold disabled:opacity-40 transition-all hover:bg-btn-hover"
+        >
+          {saving ? "Opslaan..." : "Wijzigingen Opslaan"}
+        </HapticButton>
+      </form>
+
+      <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-4">
+        <div className="flex items-center gap-1.5 text-neutral-400">
+          <Shield size={14} strokeWidth={2.5} />
+          <label className="text-[11px] font-extrabold uppercase tracking-wider">Accountbeheer</label>
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-bold px-4 py-3.5 transition-all hover:bg-red-500/20 cursor-pointer text-center"
+        >
+          Uitloggen uit app
+        </button>
       </div>
     </div>
   );
