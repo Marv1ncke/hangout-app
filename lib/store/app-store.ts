@@ -29,6 +29,9 @@ type AppStore = {
   groups: AppGroup[];
   activeGroupId: string | null;
 
+  routeTransitioning: boolean;
+  setRouteTransitioning: (v: boolean) => void;
+
   setActiveGroupIdLocal: (groupId: string | null) => void;
   bootstrap: () => Promise<void>;
   refreshGroups: () => Promise<void>;
@@ -46,6 +49,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   groups: [],
   activeGroupId: null,
+
+  routeTransitioning: false,
+  setRouteTransitioning: (v: boolean) => set({ routeTransitioning: v }),
 
   setActiveGroupIdLocal: (groupId) => set({ activeGroupId: groupId }),
 

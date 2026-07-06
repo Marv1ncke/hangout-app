@@ -21,6 +21,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   const [activeGroup, setActiveGroup] = useState<{ id: string; name: string } | null>(null);
   const [userGroups, setUserGroups] = useState<any[]>([]);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/auth");
 
@@ -111,18 +112,9 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
     { label: "Info", path: "/info", icon: <Info size={20} /> },
   ];
 
-  const isProfileActive = pathname === "/profile";
-
   return (
-    <div
-      className="
-        min-h-screen bg-background/50 text-foreground antialiased
-        md:flex
-        transform-gpu
-        will-change-transform
-        [contain:layout_paint]
-      "
-    >
+    <div className="min-h-screen bg-background/50 text-foreground antialiased md:flex">
+
       {/* MOBILE HEADER */}
       <header className="native-header flex items-center justify-between px-4 md:hidden select-none">
         <button
@@ -157,29 +149,35 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         </div>
       )}
 
-      {/* SIDEBAR (INSTAGRAM STYLE FIXED LAYER) */}
-      <aside
-        className="
-          fixed inset-y-0 left-0 z-30 hidden w-64 md:flex
-          flex-col justify-between
-          bg-container-bg border-r border-border px-4 py-6
-          transform-gpu will-change-transform
-        "
-      />
+      {/* SIDEBAR */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 md:flex flex-col justify-between bg-container-bg border-r border-border px-4 py-6" />
 
-      {/* MAIN CONTENT LAYER (SCROLL STABLE) */}
+      {/* MAIN */}
       <main className="flex-1 w-full md:pl-64 pb-20 md:pb-0">
-        <div className="max-w-4xl mx-auto px-4 py-5 md:py-8">
+        <div
+          className={`max-w-4xl mx-auto px-4 py-5 md:py-8 transition-opacity duration-150 ${
+            transitioning ? "opacity-40" : "opacity-100"
+          }`}
+        >
           {children}
         </div>
       </main>
 
-      {/* BOTTOM NAV (INSTAGRAM FIXED OVERLAY) */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex justify-around px-2 z-40 bg-background/90 backdrop-blur-md">
+      {/* BOTTOM NAV */}
+      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex justify-around items-center px-2 h-[calc(49px+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] z-[99999] bg-background/90 backdrop-blur-md border-t border-border">
         {navItems.map(item => {
           const isActive = pathname === item.path;
+
           return (
-            <Link key={item.path} href={item.path} className="flex flex-col items-center">
+            <Link
+              key={item.path}
+              href={item.path}
+              onClick={() => {
+                setTransitioning(true);
+                setTimeout(() => setTransitioning(false), 180);
+              }}
+              className="flex flex-col items-center"
+            >
               {item.icon}
               <span className={isActive ? "text-white" : "text-neutral-400"}>
                 {item.label}

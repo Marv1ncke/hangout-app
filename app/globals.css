@@ -261,14 +261,13 @@ input, textarea, select, [contenteditable="true"], [role="textbox"] {
 }
 
 
-
 body {
   transition: background-color 150ms ease;
  
 }
 
 main {
-  will-change: transform;
+  will-change: auto;
 }
 
 html, body {
@@ -277,4 +276,9 @@ html, body {
 
 body {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+.animate-layer {
+  will-change: transform;
+  transform: translate3d(0,0,0);
 }
