@@ -58,8 +58,8 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 
   /* Native Apple Motion Animations */
-  --animate-sheet-in: sheetIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-fade-in: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-sheet-in: sheetIn 0.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in: fadeIn 0.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 
   @keyframes sheetIn {
     from { transform: translateY(100%); }
@@ -102,17 +102,7 @@
   --container-bg: #1e1e1e; /* Iets lichtere container op de donkere achtergrond */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #121212;
-    --foreground: #f5f5f5;
-    --border: rgba(255, 255, 255, 0.08);
-    --btn-bg: #ffffff;
-    --btn-text: #000000;
-    --btn-hover: #e5e5e5;
-    --container-bg: #1e1e1e;
-  }
-}
+
 
 @layer base {
   * {
@@ -283,4 +273,16 @@ body {
 .animate-layer {
   will-change: transform;
   transform: translate3d(0,0,0);
+}
+
+html, body, #root, #__next {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+/* Zorgt dat de boven- en onderkant van iPhones (buiten de veilige zone) ook de juiste kleur hebben */
+@supports (padding-top: env(safe-area-inset-top)) {
+  html {
+    background-color: var(--background) !important;
+  }
 }
