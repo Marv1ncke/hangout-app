@@ -124,43 +124,44 @@ export default function GroupsPage() {
     setIsProtected(false);
     setShowCreateSheet(false);
   
-    // 1. Voeg de groep toe
-    const { data: newGroup, error: groupError } = await supabase
-      .from("groups")
-      .insert({ 
-        name: prospectiveGroup.name, 
-        join_code: generatedCode, 
-        invite_code: generatedCode, 
-        is_protected: isProtected,
-        created_by: userId
-      })
-      .select()
-      .single();
-  
-    if (groupError) {
-      showNotification("Fout bij aanmaken", groupError.message);
-      mutateNav();
-      return;
-    }
-  
-    // 2. Voeg de maker DIRECT toe aan group_members als actief lid
-    const { error: memberError } = await supabase
-      .from("group_members")
-      .insert({
-        group_id: newGroup.id,
-        user_id: userId,
-        status: "active" // Zorgt ervoor dat je direct in de ledenlijst staat!
-      });
-  
-    if (memberError) {
-      console.error("Fout bij toevoegen lidmaatschap:", memberError.message);
-    }
-  
-    // 3. Update de geselecteerde groep in het profiel
-    await supabase
-      .from("profiles")
-      .update({ selected_group_id: newGroup.id })
-      .eq("id", userId);
+// 1. Voeg de groep toe
+const { data: insertedGroups, error: groupError } = await supabase
+.from("groups")
+.insert({ 
+  name: prospectiveGroup.name, 
+  join_code: generatedCode, 
+  invite_code: generatedCode, 
+  is_protected: isProtected,
+  created_by: userId
+})
+.select();
+
+if (groupError || !insertedGroups || insertedGroups.length === 0) {
+showNotification("Fout bij aanmaken", groupError?.message || "Geen data teruggekregen");
+mutateNav();
+return;
+}
+
+const createdGroup = insertedGroups[0];
+
+// 2. Voeg de maker DIRECT toe als actief lid
+const { error: memberError } = await supabase
+.from("group_members")
+.insert({
+  group_id: createdGroup.id,
+  user_id: userId,
+  status: "active"
+});
+
+if (memberError) {
+console.error("Fout bij lidmaatschap:", memberError.message);
+}
+
+// 3. Update de geselecteerde groep in het profiel
+await supabase
+.from("profiles")
+.update({ selected_group_id: createdGroup.id })
+.eq("id", userId);
     
     // 4. Forceer harde sync van alle nav-data over de hele app
     mutateNav();
