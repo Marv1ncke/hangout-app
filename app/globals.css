@@ -209,3 +209,17 @@ main {
   color: var(--foreground) !important;
   border: 1px solid var(--border) !important;
 }
+
+/* Fix voor onbereikbare/onklikbare inputs in iOS PWA Standalone modus */
+@media (display-mode: standalone) {
+  html, body {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    touch-action: manipulation;
+  }
+  
+  input, textarea {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+  }
+}
