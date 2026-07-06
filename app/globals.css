@@ -211,6 +211,8 @@ will-change: transform;
   height: 100% !important;
   color: var(--foreground);
   opacity: 0.6;
+  position: fixed !important;
+
 }
 
 .native-nav-link[class*="text-foreground"], .native-nav-link[data-active="true"] {
