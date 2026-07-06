@@ -1,4 +1,12 @@
 // public/sw.js
+self.addEventListener("install", (event) => {
+    self.skipWaiting(); // Dwingt de PWA om direct de allernieuwste code te gebruiken
+  });
+  
+  self.addEventListener("activate", (event) => {
+    event.waitUntil(clients.claim()); // Activeert direct de nieuwe CSS/JS instellingen voor alle vensters
+  });
+  
 
 self.addEventListener("push", function (event) {
     if (!event.data) return;
