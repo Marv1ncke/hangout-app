@@ -143,9 +143,9 @@ html, body {
   margin: 0;
   padding: 0 !important;
   min-height: 100dvh;
-  touch-action: manipulation;
+  touch-action: pan-x pan-y; /* Gewijzigd van manipulation naar standaard pan-functies */
   -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none; /* Blokkeert tekstselectie op knoppen/teksten op iOS */
+  -webkit-user-select: none; 
   user-select: none;
   overflow-x: hidden;
   scroll-behavior: smooth;
@@ -218,7 +218,27 @@ main {
   border: 1px solid var(--border) !important;
 }
 
+input, textarea, select, [contenteditable="true"], [role="textbox"] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+  pointer-events: auto !important; /* Forceert dat er geklikt mag worden */
+  cursor: text !important;
+}
+
 /* Fix voor onbereikbare/onklikbare inputs in iOS PWA Standalone modus */
 @media (display-mode: standalone) {
-  
+  * {
+    -webkit-user-select: inherit;
+  }
+  html, body {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+  input, textarea, select, [contenteditable="true"] {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    pointer-events: auto !important;
+  }
 }
