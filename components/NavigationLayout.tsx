@@ -12,21 +12,6 @@ interface NavigationLayoutProps {
   children: React.ReactNode;
 }
 
-/* ✅ OUTSIDE COMPONENT = STABLE */
-const MainContent = React.memo(function MainContent({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <main className="flex-1 w-full min-h-screen md:pl-64 transform-gpu will-change-transform">
-      <div className="max-w-4xl mx-auto px-4 py-5 md:py-8">
-        {children}
-      </div>
-    </main>
-  );
-});
-
 export default function NavigationLayout({ children }: NavigationLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -57,9 +42,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         full_name: profileData.full_name || "Gebruiker",
         avatar_url:
           profileData.avatar_url ||
-          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
-            profileData.full_name || "U"
-          )}`,
+          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(profileData.full_name || "U")}`,
       });
     }
 
@@ -131,8 +114,16 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   const isProfileActive = pathname === "/profile";
 
   return (
-    <div className="min-h-screen bg-background/50 text-foreground antialiased flex flex-col md:flex-row transform-gpu">
-      
+    <div
+      className="
+        min-h-screen bg-background/50 text-foreground antialiased
+        md:flex
+        transform-gpu
+        will-change-transform
+        [contain:layout_paint]
+      "
+    >
+      {/* MOBILE HEADER */}
       <header className="native-header flex items-center justify-between px-4 md:hidden select-none">
         <button
           onClick={() => setShowGroupSelector(!showGroupSelector)}
@@ -145,6 +136,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         </button>
       </header>
 
+      {/* GROUP SELECTOR */}
       {showGroupSelector && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div
@@ -165,11 +157,25 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
         </div>
       )}
 
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 md:flex flex-col justify-between bg-container-bg border-r border-border px-4 py-6" />
+      {/* SIDEBAR (INSTAGRAM STYLE FIXED LAYER) */}
+      <aside
+        className="
+          fixed inset-y-0 left-0 z-30 hidden w-64 md:flex
+          flex-col justify-between
+          bg-container-bg border-r border-border px-4 py-6
+          transform-gpu will-change-transform
+        "
+      />
 
-      <MainContent>{children}</MainContent>
+      {/* MAIN CONTENT LAYER (SCROLL STABLE) */}
+      <main className="flex-1 w-full md:pl-64 pb-20 md:pb-0">
+        <div className="max-w-4xl mx-auto px-4 py-5 md:py-8">
+          {children}
+        </div>
+      </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex justify-around px-2 z-40">
+      {/* BOTTOM NAV (INSTAGRAM FIXED OVERLAY) */}
+      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex justify-around px-2 z-40 bg-background/90 backdrop-blur-md">
         {navItems.map(item => {
           const isActive = pathname === item.path;
           return (

@@ -150,6 +150,8 @@ html, body {
   overflow-x: hidden;
   scroll-behavior: smooth;
   overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 /* Zorg dat invoervelden ALTIJD typbaar zijn, ongeacht de standalone modus */
@@ -251,6 +253,7 @@ input, textarea, select, [contenteditable="true"], [role="textbox"] {
 
 body {
   transition: background-color 150ms ease;
+ 
 }
 
 main {
