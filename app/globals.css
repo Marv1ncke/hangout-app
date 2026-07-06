@@ -242,3 +242,17 @@ input, textarea, select, [contenteditable="true"], [role="textbox"] {
     pointer-events: auto !important;
   }
 }
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+
+body {
+  transition: background-color 150ms ease;
+}
+
+main {
+  will-change: transform;
+}
