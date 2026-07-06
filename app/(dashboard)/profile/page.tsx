@@ -7,7 +7,7 @@ import { Link, useTransitionRouter as useRouter } from "next-view-transitions";
 import { supabase } from "@/lib/supabase/client";
 import { useNavData } from "../../../hooks/useNavData";
 import HapticButton from "@/components/HapticButton";
-import { Type, Sun, Moon, Laptop, User, Shield } from "lucide-react";
+import { Type, Sun, Moon, Laptop, User, Shield, Info } from "lucide-react";
 
 const AVAILABLE_FONTS = [
   { id: "inherit", name: "Systeem Standaard", css: "system-ui, sans-serif" },
@@ -127,7 +127,6 @@ export default function ProfilePage() {
     mutateNav();
   }
 
-  // ⚡ GEFIXTE OPSLAAN FUNCTIE VIA RECHTSSTREEKSE AUTH CHECK
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -277,8 +276,7 @@ export default function ProfilePage() {
                 <button
                   key={font.id}
                   type="button"
-                  onClick={() => handleFontChange(font.id)}
-                  /* ⚡ GEFIXT: `style={{ fontFamily: ... }}` dwingt af dat de knop ALTIJD zijn eigen font toont, ongeacht wat de actieve body-stijl is! */
+                  onClick={() => handleFontChange(font.id)} // ⚡ GEFIXT: Pijlerfunctie toegevoegd
                   style={{ fontFamily: font.css }}
                   className={`p-3 text-xs font-bold rounded-xl border text-left transition active:scale-98 cursor-pointer ${
                     activeFont === font.id
@@ -312,6 +310,21 @@ export default function ProfilePage() {
           {saving ? "Opslaan..." : "Wijzigingen Opslaan"}
         </HapticButton>
       </form>
+
+      {/* ⚡ APPLICATIE INFO ROW - Linkt direct door naar de bestaande /info pagina */}
+      <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-4">
+        <div className="flex items-center gap-1.5 text-neutral-400">
+          <Info size={14} strokeWidth={2.5} />
+          <label className="text-[11px] font-extrabold uppercase tracking-wider">Over de Applicatie</label>
+        </div>
+        <Link
+          href="/info"
+          className="flex items-center justify-between w-full rounded-xl bg-background border border-border px-4 py-3.5 text-xs font-bold transition-all hover:border-neutral-400 active:scale-98 cursor-pointer"
+        >
+          <span className="text-foreground">Bekijk info & updates</span>
+          <Info size={16} className="text-neutral-400" />
+        </Link>
+      </div>
 
       <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-4">
         <div className="flex items-center gap-1.5 text-neutral-400">
