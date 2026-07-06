@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
@@ -8,7 +9,6 @@ import { useNavData } from "../../../hooks/useNavData";
 import HapticButton from "@/components/HapticButton";
 import { Type } from "lucide-react";
 
-// Available UI Fonts matched with GroupsPage consumer
 const AVAILABLE_FONTS = [
   { id: "inherit", name: "Systeem Standaard" },
   { id: "var(--font-sans), sans-serif", name: "Inter Sans" },
@@ -20,69 +20,50 @@ export default function ProfilePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 1. INTEGRATE COHERENT GLOBAL STORE & MUTATOR
+  // 1. ZORG DAT WE DIRECT MET DE AL AANWEZIGE CACHE INITIALISEREN
   const { data: navData, mutate: mutateNav } = useNavData();
   
-  const [userId, setUserId] = useState("");
-  const [email, setEmail] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
+  const cachedProfile = (navData as any)?.profile;
+  const userId = cachedProfile?.id || "";
+  const email = (navData as any)?.user?.email || "";
+
+  // Lokale input states direct vullen met cache (GEEN FLITS EN GEEN VERTRAGING 👍)
+  const [fullName, setFullName] = useState(cachedProfile?.full_name || "");
+  const [avatarUrl, setAvatarUrl] = useState(cachedProfile?.avatar_url || "");
   const [activeFont, setActiveFont] = useState("inherit");
   
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Load initial fallback or cache data cleanly
+  // Synchroniseer lokale states als de cache op de achtergrond update
   useEffect(() => {
-    async function loadProfileData() {
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData.user;
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      setUserId(user.id);
-      setEmail(user.email ?? "");
-
-      // Read custom font dynamically without breaking layout structures
-      if (typeof window !== "undefined") {
-        const storedFont = localStorage.getItem("app-custom-font");
-        if (storedFont) setActiveFont(storedFont);
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, avatar_url")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profile) {
-        setFullName(profile.full_name ?? "");
-        setAvatarUrl(profile.avatar_url ?? "");
-      } else {
-        await supabase.from("profiles").insert({
-          id: user.id,
-          full_name: user.user_metadata?.full_name ?? "",
-          avatar_url: "",
-        });
-        setFullName(user.user_metadata?.full_name ?? "");
-      }
+    if (cachedProfile) {
+      if (!fullName) setFullName(cachedProfile.full_name || "");
+      if (!avatarUrl) setAvatarUrl(cachedProfile.avatar_url || "");
     }
+  }, [cachedProfile]);
 
-    loadProfileData();
+  // Enkel fonts en auth-check via effect om hydration mismatches te voorkomen
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedFont = localStorage.getItem("app-custom-font");
+      if (storedFont) setActiveFont(storedFont);
+    }
+    
+    // Stuur niet-ingelogde gebruikers direct door
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) router.push("/login");
+    });
   }, [router]);
 
-  // Handle application layout-level font change
   function handleFontChange(fontId: string) {
     setActiveFont(fontId);
     localStorage.setItem("app-custom-font", fontId);
-    // Dispatches standard event if other legacy mounts need sync checks
     window.dispatchEvent(new Event("groupChanged"));
   }
 
-  // 2. OPTIMISTIC PROFILE MUTATIONS (ZERO PERCEPTION LATENCY)
+  // 2. INSTANT OPTIMISTIC UPLOAD
   async function handleFileChange(file?: File) {
     if (!file || !userId) return;
 
@@ -119,7 +100,7 @@ export default function ProfilePage() {
     const publicUrl = data.publicUrl;
     setAvatarUrl(publicUrl);
 
-    // Optimistically patch top navbar/sidebar avatar before server confirms
+    // Update navigatie-cache instant
     mutateNav(
       (old: any) => ({
         ...old,
@@ -138,20 +119,20 @@ export default function ProfilePage() {
     setUploading(false);
     if (profileError) {
       setStatusMessage({ type: "error", text: profileError.message });
-      mutateNav(); // rollback on fault
+      mutateNav(); 
     } else {
       setStatusMessage({ type: "success", text: "Profielfoto succesvol bijgewerkt! ✨" });
       mutateNav();
     }
   }
 
+  // 3. INSTANT OPTIMISTIC SAVE NAMES
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!userId) return;
     setSaving(true);
     setStatusMessage(null);
 
-    // Optimistically update workspace sidebar name indicators
     mutateNav(
       (old: any) => ({
         ...old,
@@ -167,11 +148,10 @@ export default function ProfilePage() {
       updated_at: new Date().toISOString(),
     });
 
-    setSaving(true);
     setSaving(false);
     if (error) {
       setStatusMessage({ type: "error", text: error.message });
-      mutateNav(); // Rollback if network failed
+      mutateNav(); 
     } else {
       setStatusMessage({ type: "success", text: "Profiel succesvol opgeslagen!" });
       mutateNav();
@@ -180,7 +160,7 @@ export default function ProfilePage() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    mutateNav(null, false); // clear memory context layout block
+    mutateNav(null, false); 
     router.push("/login");
   }
 
@@ -194,16 +174,15 @@ export default function ProfilePage() {
       <div className="bg-white rounded-2xl p-6 border border-neutral-100/60 space-y-6 shadow-3xs">
         <form onSubmit={saveProfile} className="space-y-6">
           
-          {/* Minimalist Avatar Circle Frame */}
           <div className="flex items-center gap-5">
             <div 
               onClick={() => !uploading && fileInputRef.current?.click()}
-              className="relative h-20 w-20 rounded-full overflow-hidden bg-neutral-50 cursor-pointer group flex-shrink-0 border border-neutral-100"
+              className="relative h-20 w-20 rounded-full overflow-hidden bg-neutral-900 cursor-pointer group flex-shrink-0 border border-neutral-100"
             >
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover transition group-hover:opacity-80" />
               ) : (
-                <div className="h-full w-full flex items-center justify-center bg-neutral-900 text-white text-2xl font-black">
+                <div className="h-full w-full flex items-center justify-center text-white text-2xl font-black">
                   {(fullName || email || "?").charAt(0).toUpperCase()}
                 </div>
               )}
@@ -213,8 +192,8 @@ export default function ProfilePage() {
             </div>
 
             <div className="min-w-0">
-              <h3 className="font-black text-neutral-900 tracking-tight truncate">{fullName || "Naam instellen"}</h3>
-              <p className="text-xs text-neutral-400 font-bold truncate break-all">{email}</p>
+              <h3 className="font-black text-neutral-900 tracking-tight truncate">{fullName || "Naam laden..."}</h3>
+              <p className="text-xs text-neutral-400 font-bold truncate break-all">{email || "Email laden..."}</p>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -233,7 +212,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Form input */}
           <div className="space-y-2">
             <label className="text-[11px] font-extrabold uppercase tracking-wider text-neutral-400 px-1">Weergavenaam</label>
             <input
@@ -246,7 +224,6 @@ export default function ProfilePage() {
             />
           </div>
 
-          {/* 3. APP FONT CUSTOMIZER SELECTION PACK */}
           <div className="space-y-2.5 pt-2 border-t border-neutral-50">
             <div className="flex items-center gap-1.5 text-neutral-400 px-1">
               <Type size={14} strokeWidth={2.5} />
