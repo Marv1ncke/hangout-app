@@ -182,7 +182,7 @@ input, textarea, select, [contenteditable="true"] {
 }
 
 main {
-  padding-top: calc(env(safe-area-inset-top) + 20px) !important;
+  padding-top: calc(env(safe-area-inset-top) + 0px) !important;
   will-change: auto;
 }
 
@@ -193,7 +193,7 @@ main {
   bottom: 0;
 
   height: 58px; /* vaste hoogte = belangrijk */
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: 5px /*-inset-bottom)*/;
 
   display: flex;
   align-items: center;
@@ -208,17 +208,25 @@ main {
 }
 
 .native-nav-link {
-  position: relative !important;
   flex: 1;
   height: 100%;
 
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-direction: column !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 2px;
+  font-size: 11px;
+  line-height: 1;
+
+  color: var(--foreground);
 }
 
-
+.native-nav-link svg {
+  width: 20px;
+  height: 20px;
+}
 
 .native-nav-link[class*="text-foreground"], .native-nav-link[data-active="true"] {
   opacity: 1 !important;
