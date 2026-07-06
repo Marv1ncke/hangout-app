@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Link, useTransitionRouter as useRouter } from "next-view-transitions";
 import { supabase } from "@/lib/supabase/client";
 
 type Mode = "login" | "register" | "forgot";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Link, useTransitionRouter as useRouter } from "next-view-transitions";
 import { useAppStore } from "@/lib/store/app-store";
 
 export default function AppBootstrap({

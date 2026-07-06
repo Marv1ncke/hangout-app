@@ -5,8 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { NewHangoutModal } from "@/components/ui/NewHangoutModal";
 import { supabase } from "@/lib/supabase/client";
-import { Link } from "next-view-transitions";
-import { useRouter } from "next/navigation";
+import { Link, useTransitionRouter as useRouter } from "next-view-transitions";
 
 type Profile = {
   full_name: string | null;

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Link, useTransitionRouter as useRouter } from "next-view-transitions";
 import { supabase } from "@/lib/supabase/client";
 
 export default function UpdatePasswordPage() {
