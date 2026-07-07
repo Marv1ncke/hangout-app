@@ -22,10 +22,12 @@ export default function ProfilePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // FIX: Haal 'data' op uit de SWR-hook hook response
   const { data: navData, mutate: mutateNav } = useNavData();
   
-  const cachedProfile = (navData as any)?.profile;
-  const email = (navData as any)?.user?.email || "";
+  // FIX: SWR response bevat direct het geretourneerde object, pak hier veilig de waardes uit
+  const cachedProfile = navData?.profile;
+  const email = navData?.user?.email || "";
 
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -36,12 +38,13 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // FIX: Synchroniseer invoervelden zodra de gecachte data via SWR/NavData binnenkomt
   useEffect(() => {
     if (cachedProfile) {
-      setFullName((prev) => prev || cachedProfile.full_name || "");
-      setAvatarUrl((prev) => prev || cachedProfile.avatar_url || "");
+      if (!fullName) setFullName(cachedProfile.full_name || "");
+      if (!avatarUrl) setAvatarUrl(cachedProfile.avatar_url || "");
     }
-  }, [cachedProfile]);
+  }, [cachedProfile, fullName, avatarUrl]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -276,7 +279,7 @@ export default function ProfilePage() {
                 <button
                   key={font.id}
                   type="button"
-                  onClick={() => handleFontChange(font.id)} // ⚡ GEFIXT: Pijlerfunctie toegevoegd
+                  onClick={() => handleFontChange(font.id)}
                   style={{ fontFamily: font.css }}
                   className={`p-3 text-xs font-bold rounded-xl border text-left transition active:scale-98 cursor-pointer ${
                     activeFont === font.id
@@ -311,7 +314,7 @@ export default function ProfilePage() {
         </HapticButton>
       </form>
 
-      {/* ⚡ APPLICATIE INFO ROW - Linkt direct door naar de bestaande /info pagina */}
+      {/* APPLICATIE INFO ROW */}
       <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-4">
         <div className="flex items-center gap-1.5 text-neutral-400">
           <Info size={14} strokeWidth={2.5} />
