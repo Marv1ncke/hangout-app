@@ -52,19 +52,27 @@ export default function NotificationsPage() {
     myGroupIds.length > 0 ? ["user-join-requests", ...myGroupIds.sort()] : null,
     async () => {
       const { data, error } = await supabase
-        .from("group_members")
-        .select(`
-          id,
-          group_id,
-          user_id,
-          status,
-          created_at,
-          groups:group_id ( name ),
-          profiles:user_id ( full_name, avatar_url )
-        `)
-        .in("group_id", myGroupIds)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+  .from("group_members")
+  .select(`
+    id,
+    group_id,
+    user_id,
+    status,
+    created_at,
+    groups (
+      id,
+      name
+    ),
+    profiles:user_id (
+      full_name,
+      avatar_url
+    )
+   `)
+  .in("group_id", myGroupIds)
+  .eq("status", "pending")
+  .order("created_at", { ascending: false });
+
+console.log("JOIN REQUESTS RAW:", data);
 
       if (error) throw error;
 
@@ -74,8 +82,13 @@ export default function NotificationsPage() {
         user_id: r.user_id,
         status: r.status,
         created_at: r.created_at,
+      
         group_name: r.groups?.name || "Onbekende groep",
-        user_name: r.profiles?.full_name || "Nieuw lid",
+      
+        user_name:
+          r.profiles?.full_name ||
+          "Nieuw lid",
+      
         user_avatar:
           r.profiles?.avatar_url ||
           `https://api.dicebear.com/7.x/initials/svg?seed=${r.user_id}`,
@@ -94,12 +107,13 @@ export default function NotificationsPage() {
     useSWR<PersonalNotification[]>(
       currentUserId ? ["personal-notifications", currentUserId] : null,
       async () => {
+      
         const { data, error } = await supabase
-          .from("notifications")
-          .select("id, title, body, type, created_at")
-          .eq("user_id", currentUserId)
-          .eq("is_read", false)
-          .order("created_at", { ascending: false });
+        .from("notifications")
+        .select("id, title, body, type, created_at, is_read, dismissed_at")
+        .eq("user_id", currentUserId)
+        .is("dismissed_at", null)
+        .order("created_at", { ascending: false });
 
         if (error) throw error;
         return data || [];
@@ -172,29 +186,36 @@ export default function NotificationsPage() {
   // ----------------------------------------
   async function handleDismissNotification(id: string) {
     if (dismissingIds.includes(id)) return;
+  
     setDismissingIds((prev) => [...prev, id]);
-
+  
     const previousNotifications = personalNotifications;
-
+  
     mutatePersonal(
       previousNotifications.filter((n) => n.id !== id),
       false
     );
-
+  
     try {
       const { error } = await supabase
         .from("notifications")
-        .update({ is_read: true })
-        .eq("id", id);
-
+        .update({
+          dismissed_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .eq("user_id", currentUserId);
+  
       if (error) throw error;
-
+  
       await mutatePersonal();
+  
     } catch {
       mutatePersonal(previousNotifications, false);
-      showToast("Kon melding niet wegklikken.");
+      showToast("Kon melding niet verwijderen.");
     } finally {
-      setDismissingIds((prev) => prev.filter((nId) => nId !== id));
+      setDismissingIds((prev) =>
+        prev.filter((nId) => nId !== id)
+      );
     }
   }
 

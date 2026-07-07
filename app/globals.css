@@ -61,10 +61,7 @@
   --animate-sheet-in: sheetIn 0.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-fade-in: fadeIn 0.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 
-  @keyframes sheetIn {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-  }
+  
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -359,3 +356,84 @@ html, body, #root, #__next {
     max-width: 430px;
     transform: translateX(-50%);
   }
+
+  /* ==========================================================================
+   NATIVE SHEETS — altijd achter de bottom navbar, smooth in/out
+   ========================================================================== */
+
+@theme {
+  --bottom-nav-height: 58px;
+  --sheet-safe-offset: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+
+  --animate-sheet-in: sheetIn 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  --animate-sheet-out: sheetOut 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  --animate-sheet-fade-in: sheetFadeIn 180ms ease forwards;
+  --animate-sheet-fade-out: sheetFadeOut 180ms ease forwards;
+
+  @keyframes sheetIn {
+    from {
+      transform: translateY(calc(100% + var(--sheet-safe-offset)));
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes sheetOut {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(calc(100% + var(--sheet-safe-offset)));
+    }
+  }
+
+  @keyframes sheetFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes sheetFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+}
+
+/* Bottom navbar moet ALTIJD boven sheets blijven */
+.native-bottom-bar {
+  z-index: 99999 !important;
+}
+
+/* Optionele helper classes voor sheets */
+.native-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(10 10 10 / 0.2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: sheetFadeIn 180ms ease forwards;
+}
+
+.native-sheet-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  background: color-mix(in srgb, var(--container-bg) 95%, transparent);
+  border-top: 1px solid var(--border);
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18);
+
+  will-change: transform;
+  animation: sheetIn 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Als je later een exit-animatie met closing state wil */
+.native-sheet-panel.closing {
+  animation: sheetOut 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.native-sheet-backdrop.closing {
+  animation: sheetFadeOut 180ms ease forwards;
+}

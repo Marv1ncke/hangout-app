@@ -187,8 +187,8 @@ export default function ExpensesPage() {
     <div className="space-y-6 select-none animate-in fade-in">
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div>
-          <h1 className="text-2xl font-black tracking-tight">Kosten Pot</h1>
-          <p className="text-xs font-bold text-neutral-400 mt-0.5">Wie moet wat aan wie? Splitwise, live in je app.</p>
+          <h1 className="text-2xl font-black tracking-tight">Budget</h1>
+          <p className="text-xs font-bold text-neutral-400 mt-0.5">Wie moet wat aan wie? Splitwise Pro, but better.</p>
         </div>
         <div className="flex gap-2">
           {expenses.length > 0 && (

@@ -5,20 +5,19 @@ import React, { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useNavData } from "@/hooks/useNavData";
 import { useEventsData } from "@/hooks/usePwaData";
-import { Plus, ShoppingBag, Heart, ArrowRight, Navigation, X, MapPin } from "lucide-react";
+import { Plus } from "lucide-react";
 
 type ViewType = "day" | "week" | "month" | "6month";
 
 export default function EventsPage() {
   const { data: navData } = useNavData();
 
-  const activeGroupId = navData?.activeGroup?.id;
-  const userId = navData?.user?.id;
+  const activeGroupId = navData?.activeGroup?.id ?? null;
+  const userId = navData?.user?.id ?? null;
 
-  // ✅ minimal TS fix (no behavior change)
-  const uid = userId as string;
-
-  const { events, groupProfiles, mutate } = useEventsData(activeGroupId);
+  // altijd een stabiele value naar de hook sturen
+  const safeGroupId = activeGroupId ?? "";
+  const { events, groupProfiles, mutate } = useEventsData(safeGroupId);
 
   const [currentView, setCurrentView] = useState<ViewType>("month");
   const [showCreateSheet, setShowCreateSheet] = useState(false);
@@ -46,26 +45,10 @@ export default function EventsPage() {
 
   const [formError, setFormError] = useState<string | null>(null);
 
-  // 🔒 GROUP SAFETY GUARD
-  if (!activeGroupId) {
-    return (
-      <div className="p-10 text-center text-sm font-bold text-neutral-500">
-        Selecteer eerst een groep om events te bekijken.
-      </div>
-    );
-  }
-
-  // 🔒 USER SAFETY GUARD (UNCHANGED LOGIC, STILL SAFE)
-  if (!userId) {
-    return (
-      <div className="p-10 text-center text-sm font-bold text-neutral-500">
-        User niet ingelogd.
-      </div>
-    );
-  }
-
-  // ---------- FILTER EVENTS BY VIEW ----------
+  // altijd hooks eerst uitvoeren, pas daarna conditioneel returnen
   const filteredEvents = useMemo(() => {
+    if (!activeGroupId) return [];
+
     const now = new Date();
 
     return [...events]
@@ -73,18 +56,27 @@ export default function EventsPage() {
       .filter((event) => {
         const d = new Date(event.date);
 
-        if (currentView === "day") return d.toDateString() === now.toDateString();
+        if (currentView === "day") {
+          return d.toDateString() === now.toDateString();
+        }
 
         if (currentView === "week") {
           const start = new Date(now);
           start.setDate(now.getDate() - now.getDay());
+          start.setHours(0, 0, 0, 0);
+
           const end = new Date(start);
           end.setDate(start.getDate() + 7);
+          end.setHours(23, 59, 59, 999);
+
           return d >= start && d <= end;
         }
 
         if (currentView === "month") {
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+          return (
+            d.getMonth() === now.getMonth() &&
+            d.getFullYear() === now.getFullYear()
+          );
         }
 
         if (currentView === "6month") {
@@ -95,9 +87,27 @@ export default function EventsPage() {
 
         return true;
       });
-  }, [events, currentView]);
+  }, [events, currentView, activeGroupId]);
 
-  // ---------- ATTENDANCE ----------
+  // guards PAS NA alle hooks
+  if (!activeGroupId) {
+    return (
+      <div className="p-10 text-center text-sm font-bold text-neutral-500">
+        Selecteer eerst een groep om events te bekijken.
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="p-10 text-center text-sm font-bold text-neutral-500">
+        User niet ingelogd.
+      </div>
+    );
+  }
+
+  const uid = userId;
+
   async function toggleAttendance(event: any) {
     const attendees: string[] = event.attendees || [];
 
@@ -119,7 +129,6 @@ export default function EventsPage() {
     mutate();
   }
 
-  // ---------- CREATE EVENT ----------
   async function createEvent(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -132,14 +141,11 @@ export default function EventsPage() {
     const payload: any = {
       group_id: activeGroupId,
       created_by: uid,
-
       title,
       date,
       event_type: eventType,
-
       location_address: locationAddress,
       dresscode: dresscode || null,
-
       bring_list: bringList.map((item) => ({ item, claims: [] })),
       attendees: [uid],
     };
@@ -271,9 +277,7 @@ export default function EventsPage() {
               className="w-full border p-2 text-xs"
             />
 
-            {formError && (
-              <p className="text-xs text-red-500">{formError}</p>
-            )}
+            {formError && <p className="text-xs text-red-500">{formError}</p>}
 
             <button className="w-full bg-black text-white text-xs py-2 rounded">
               Aanmaken
