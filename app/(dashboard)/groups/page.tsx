@@ -7,7 +7,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
 import { useNavData } from "../../../hooks/useNavData";
 import { mutate } from "swr";
-import { Check, Share2, Copy, Users, Pencil, LogOut } from "lucide-react";
+import { Check, Share2, Copy, Users, Pencil, LogOut, X } from "lucide-react";
 import { useGroupMembers } from "../../../hooks/useNavData"; 
 
 interface Group {
@@ -835,9 +835,10 @@ export default function GroupsPage() {
               </div>
               <button
                 onClick={() => setShowMembersSheet(false)}
-                className="bg-neutral-100 text-neutral-800 px-4 py-2 rounded-full text-xs font-bold"
+                aria-label="Sluiten"
+                className="w-9 h-9 flex items-center justify-center bg-neutral-100 text-neutral-800 rounded-full shrink-0"
               >
-                Sluiten
+                <X size={18} strokeWidth={2.5} />
               </button>
             </div>
 

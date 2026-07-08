@@ -285,8 +285,8 @@ console.log("JOIN REQUESTS RAW:", data);
                           <p className="text-sm font-bold tracking-tight leading-snug">
                             <span className="font-black">{req.user_name}</span>{" "}
                             wil meedoen met{" "}
-                            <span className="text-blue-500 font-extrabold">
-                              #{req.group_name}
+                            <span className="font-extrabold">
+                              {req.group_name}
                             </span>
                           </p>
                           <p className="text-[10px] text-neutral-400 font-bold mt-0.5">
