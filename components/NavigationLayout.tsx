@@ -42,20 +42,38 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
     if (navData === null) router.push("/login");
   }, [navData, isAuthPage, router]);
 
-  // Pending-count blijft een losse, lichte query (los van de hoofd-nav-data),
-  // want die moet vaker kunnen verversen zonder de hele nav cache te triggeren.
+  // Pending-count: los van de hoofd-nav-data, maar nu ook realtime, zodat
+  // een nieuw join-verzoek meteen het bel-icoontje bijwerkt zonder refresh.
   useEffect(() => {
     if (isAuthPage || !navData?.groups?.length) {
       setPendingCount(0);
       return;
     }
     const groupIds = navData.groups.map((g: any) => g.id);
-    supabase
-      .from("group_members")
-      .select("*", { count: "exact", head: true })
-      .in("group_id", groupIds)
-      .eq("status", "pending")
-      .then(({ count }) => setPendingCount(count || 0));
+
+    const refreshPendingCount = () => {
+      supabase
+        .from("group_members")
+        .select("*", { count: "exact", head: true })
+        .in("group_id", groupIds)
+        .eq("status", "pending")
+        .then(({ count }) => setPendingCount(count || 0));
+    };
+
+    refreshPendingCount();
+
+    const channel = supabase
+      .channel(`nav-pending-${groupIds.join("-")}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "group_members" },
+        () => refreshPendingCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [isAuthPage, navData?.groups]);
 
   async function handleGroupSwitch(groupId: string) {

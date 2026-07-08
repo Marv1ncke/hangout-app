@@ -7,33 +7,52 @@ import { supabase } from "@/lib/supabase/client";
 export default function AppBadgeRegistry() {
   const { data: navData } = useNavData();
   const userId = navData?.user?.id;
+  const myGroupIds = (navData?.groups || []).map((g: any) => g.id);
 
   useEffect(() => {
-    // Als er geen gebruiker is ingelogd, clear de badge direct (Fix Bug 2 - Test 3 & 5)
     if (!userId) {
       if ("clearAppBadge" in navigator) {
-        navigator.clearAppBadge().catch((err) => 
+        navigator.clearAppBadge().catch((err) =>
           console.error("Fout bij clearen badge (unauthenticated):", err)
         );
       }
       return;
     }
 
-    // Functie om actieve ongelezen notificaties te tellen (Fix Bug 2 - Gewenst gedrag)
+    // Badge = ongelezen personal notifications + openstaande join-requests
+    // voor groepen waar ik actief lid van ben. Voorheen telde dit alleen
+    // 'notifications', waardoor join-requests (die alleen in group_members
+    // leven) nooit het bolletje triggerden.
     const updateBadgeCount = async () => {
-      const { count, error } = await supabase
+      const notificationsPromise = supabase
         .from("notifications")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
         .eq("is_read", false)
         .is("dismissed_at", null);
 
-      if (error) {
-        console.error("Fout bij ophalen notificatie count voor badge:", error);
-        return;
+      const requestsPromise =
+        myGroupIds.length > 0
+          ? supabase
+              .from("group_members")
+              .select("*", { count: "exact", head: true })
+              .in("group_id", myGroupIds)
+              .eq("status", "pending")
+          : Promise.resolve({ count: 0, error: null });
+
+      const [notifRes, reqRes] = await Promise.all([
+        notificationsPromise,
+        requestsPromise,
+      ]);
+
+      if (notifRes.error) {
+        console.error("Fout bij ophalen notificatie count voor badge:", notifRes.error);
+      }
+      if (reqRes.error) {
+        console.error("Fout bij ophalen join-request count voor badge:", reqRes.error);
       }
 
-      const activeCount = count || 0;
+      const activeCount = (notifRes.count || 0) + (reqRes.count || 0);
 
       if ("setAppBadge" in navigator) {
         try {
@@ -48,31 +67,34 @@ export default function AppBadgeRegistry() {
       }
     };
 
-    // 1. Voer direct uit bij laden / login (Fix Bug 2 - Bij app start)
     updateBadgeCount();
 
-    // 2. Luister realtime naar alle wijzigingen in de tabel 'notifications' voor deze gebruiker
-    const channel = supabase
+    const notifChannel = supabase
       .channel(`badge-notifications-${userId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          updateBadgeCount(); // Update badge wanneer notificaties worden gelezen, toegevoegd of dismissed
-        }
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        () => updateBadgeCount()
+      )
+      .subscribe();
+
+    // Los kanaal voor group_members: geen user_id-filter mogelijk hier
+    // (pending-rijen horen bij de aanvrager, niet bij mij), dus we
+    // luisteren breed en filteren client-side via myGroupIds.
+    const requestsChannel = supabase
+      .channel(`badge-requests-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "group_members" },
+        () => updateBadgeCount()
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(notifChannel);
+      supabase.removeChannel(requestsChannel);
     };
-  }, [userId]);
+  }, [userId, JSON.stringify(myGroupIds)]);
 
-  // Deze component registreert alleen side-effects en rendert geen visuele UI elements
   return null;
 }
