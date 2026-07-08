@@ -1,0 +1,1 @@
+git add -A && git commit -m "fix: allow active group member to reject others' pending join requests (RLS delete policy)" && git push origin main
