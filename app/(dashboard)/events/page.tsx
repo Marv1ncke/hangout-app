@@ -9,6 +9,8 @@ import { Plus } from "lucide-react";
 
 type ViewType = "day" | "week" | "month" | "6month";
 
+
+
 export default function EventsPage() {
   const { data: navData } = useNavData();
 

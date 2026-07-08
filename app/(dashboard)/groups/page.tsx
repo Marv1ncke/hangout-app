@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useNavData } from "../../../hooks/useNavData";
 import { mutate } from "swr";
 import { Check, Share2, Copy, Users, Pencil, LogOut } from "lucide-react";
+import { useGroupMembers } from "../../../hooks/useNavData"; 
 
 interface Group {
   id: string;
@@ -27,8 +28,27 @@ interface GroupMemberDetail {
 export default function GroupsPage() {
   const { data: navData, mutate: mutateNav } = useNavData();
 
+  // Selection state (naar boven verplaatst om bruikbaar te zijn in useGroupMembers hook)
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+
+  // Slimme SWR-cache hook voor groepsleden gekoppeld aan de geselecteerde groep
+  const { data: cachedGroupMembers = [] } = useGroupMembers(selectedGroup?.id);
+  
   const activeGroupId = (navData as any)?.activeGroup?.id || null;
-  const userId = (navData as any)?.profile?.id || "";
+  
+  // FIX: userId state met directe fallback-synchronisatie om greyed-out knoppen te voorkomen
+  const [userId, setUserId] = useState<string>("");
+
+  useEffect(() => {
+    if (navData?.user?.id) {
+      setUserId(navData.user.id);
+    } else {
+      supabase.auth.getUser().then(({ data }) => {
+        if (data?.user?.id) setUserId(data.user.id);
+      });
+    }
+  }, [navData]);
+
   const groups = ((navData as any)?.groups || []) as Group[];
 
   const [isPending, startTransition] = useTransition();
@@ -62,9 +82,15 @@ export default function GroupsPage() {
   const [joinCodeInput, setJoinCodeInput] = useState("");
   const [editGroupNameInput, setEditGroupNameInput] = useState("");
 
-  // Selection state
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  // Volledig gevulde state die we synchroniseren met de SWR-cache data
   const [selectedGroupMembers, setSelectedGroupMembers] = useState<GroupMemberDetail[]>([]);
+
+  // Synchroniseer geselecteerde leden direct zodra de cache binnenkomt of verandert
+  useEffect(() => {
+    if (cachedGroupMembers && cachedGroupMembers.length > 0) {
+      setSelectedGroupMembers(cachedGroupMembers);
+    }
+  }, [cachedGroupMembers]);
 
   const BOTTOM_NAV_HEIGHT = 58;
   const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
@@ -94,7 +120,6 @@ export default function GroupsPage() {
       }
   
       const { data: userData } = await supabase.auth.getUser();
-  
       const user = userData.user;
   
       if (!user) return;
@@ -196,7 +221,6 @@ export default function GroupsPage() {
       created_by: userId,
     };
 
-    // optimistic nav
     mutateNav(
       (old: any) => ({
         ...old,
@@ -211,12 +235,10 @@ export default function GroupsPage() {
 
     showNotification("Groep aangemaakt", `Code: ${generatedCode}`);
 
-    // reset UI fast
     setGroupName("");
     setIsProtected(false);
     setShowCreateSheet(false);
 
-    // 1) create group
     const { data: insertedGroups, error: groupError } = await supabase
       .from("groups")
       .insert({
@@ -233,13 +255,12 @@ export default function GroupsPage() {
         "Fout bij aanmaken",
         groupError?.message || "Geen groep teruggekregen"
       );
-      await mutateNav(); // rollback to server truth
+      await mutateNav();
       return;
     }
 
     const createdGroup = insertedGroups[0] as Group;
 
-    // 2) add creator as active member
     const { error: memberError } = await supabase.from("group_members").insert({
       group_id: createdGroup.id,
       user_id: userId,
@@ -252,7 +273,6 @@ export default function GroupsPage() {
       return;
     }
 
-    // 3) set selected group on profile
     const { error: profileError } = await supabase
       .from("profiles")
       .update({ selected_group_id: createdGroup.id })
@@ -262,7 +282,6 @@ export default function GroupsPage() {
       showNotification("Groep aangemaakt, maar selecteren mislukte", profileError.message);
     }
 
-    // 4) refresh all nav data
     await forceNavRefresh();
   }
 
@@ -275,7 +294,6 @@ export default function GroupsPage() {
     const code = joinCodeInput.trim().toUpperCase();
     if (!code || !userId) return;
 
-    // 1) find group
     const { data: targetGroup, error: findError } = await supabase
       .from("groups")
       .select("id, name, join_code, invite_code, is_protected, created_by")
@@ -287,7 +305,6 @@ export default function GroupsPage() {
       return;
     }
 
-    // 2) already active member?
     const alreadyMember = groups.some((g) => g.id === targetGroup.id);
     if (alreadyMember) {
       showNotification("Je zit al in deze groep");
@@ -296,7 +313,6 @@ export default function GroupsPage() {
       return;
     }
 
-    // 3) check existing membership row (pending / active)
     const { data: existingMembership, error: existingError } = await supabase
       .from("group_members")
       .select("id, status")
@@ -324,7 +340,6 @@ export default function GroupsPage() {
       return;
     }
 
-    // 4) protected => pending request
     if (targetGroup.is_protected) {
       const { error: joinError } = await supabase.from("group_members").insert({
         group_id: targetGroup.id,
@@ -349,7 +364,6 @@ export default function GroupsPage() {
       return;
     }
 
-    // 5) open group => direct join
     mutateNav(
       (old: any) => ({
         ...old,
@@ -394,13 +408,19 @@ export default function GroupsPage() {
   }
 
   // ----------------------------------------
-  // Open members list
+  // Open members list (Nu aangedreven door SWR met fallback cache)
   // ----------------------------------------
   async function openMembersList(group: Group) {
     setSelectedGroup(group);
     setShowMembersSheet(true);
-    setSelectedGroupMembers([]);
 
+    // Als er al gecachte leden zijn voor dit groeps-id, laad deze dan direct flitsend in
+    if (cachedGroupMembers && cachedGroupMembers.length > 0) {
+      setSelectedGroupMembers(cachedGroupMembers);
+      return;
+    }
+
+    // Directe live fallback mocht de cache op dit specifieke moment nog leeg zijn
     const { data: membersData, error } = await supabase
       .from("group_members")
       .select(`
@@ -738,9 +758,7 @@ export default function GroupsPage() {
 
                   {/* ACTION BAR */}
                   <div
-                    className={`flex items-center justify-between w-full pt-3 border-t ${
-                      isActive ? "border-white/10" : "border-neutral-50"
-                    }`}
+                    className="flex items-center justify-between w-full pt-3 border-t border-white/10"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex gap-1.5 flex-wrap">
@@ -802,254 +820,249 @@ export default function GroupsPage() {
 
       {/* SHEET A: CREATE GROUP */}
       {showCreateSheet && (
-  <div className="fixed inset-0 z-[9000]">
-    {/* backdrop */}
-    <button
-      aria-label="Sluit sheet"
-      onClick={() => setShowCreateSheet(false)}
-      className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
-    />
-
-    {/* sheet */}
-    <div
-      className="absolute left-0 right-0 bottom-0 animate-sheet-in"
-      style={{
-        paddingBottom: SHEET_BOTTOM_OFFSET,
-      }}
-    >
-      <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <h2 className="text-sm font-black text-foreground">Groep aanmaken</h2>
+        <div className="fixed inset-0 z-[9000]">
+          {/* backdrop */}
           <button
+            aria-label="Sluit sheet"
             onClick={() => setShowCreateSheet(false)}
-            className="text-xs font-bold text-neutral-400 cursor-pointer"
-          >
-            Annuleer
-          </button>
-        </div>
-
-        <form onSubmit={handleCreateGroup} className="space-y-4">
-          <input
-            type="text"
-            placeholder="Groepsnaam"
-            required
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
+            className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
           />
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">
-              Groepstype
-            </label>
-            <div className="bg-neutral-100 p-1 rounded-xl flex">
-              <button
-                type="button"
-                onClick={() => setIsProtected(false)}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
-                  !isProtected
-                    ? "bg-container-bg text-foreground shadow-3xs"
-                    : "text-neutral-500"
-                }`}
-              >
-                🔓 Open
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsProtected(true)}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
-                  isProtected
-                    ? "bg-container-bg text-foreground shadow-3xs"
-                    : "text-neutral-500"
-                }`}
-              >
-                🔒 Gesloten
-              </button>
+          {/* sheet */}
+          <div
+            className="absolute left-0 right-0 bottom-0 animate-sheet-in"
+            style={{
+              paddingBottom: SHEET_BOTTOM_OFFSET,
+            }}
+          >
+            <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black text-foreground">Groep aanmaken</h2>
+                <button
+                  onClick={() => setShowCreateSheet(false)}
+                  className="text-xs font-bold text-neutral-400 cursor-pointer"
+                >
+                  Annuleer
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateGroup} className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Groepsnaam"
+                  required
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
+                />
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">
+                    Groepstype
+                  </label>
+                  <div className="bg-neutral-100 p-1 rounded-xl flex">
+                    <button
+                      type="button"
+                      onClick={() => setIsProtected(false)}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        !isProtected
+                          ? "bg-container-bg text-foreground shadow-3xs"
+                          : "text-neutral-500"
+                      }`}
+                    >
+                      🔓 Open
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsProtected(true)}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                        isProtected
+                          ? "bg-container-bg text-foreground shadow-3xs"
+                          : "text-neutral-500"
+                      }`}
+                    >
+                      🔒 Gesloten
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!userId}
+                  className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
+                >
+                  Maak groep
+                </button>
+              </form>
             </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={!userId}
-            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
-          >
-            Maak groep
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+        </div>
+      )}
 
       {/* SHEET B: JOIN BY CODE */}
       {showJoinSheet && (
-  <div className="fixed inset-0 z-[9000]">
-    {/* backdrop */}
-    <button
-      aria-label="Sluit sheet"
-      onClick={() => setShowJoinSheet(false)}
-      className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
-    />
-
-    {/* sheet */}
-    <div
-      className="absolute left-0 right-0 bottom-0 animate-sheet-in"
-      style={{
-        paddingBottom: SHEET_BOTTOM_OFFSET,
-      }}
-    >
-      <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <h2 className="text-sm font-black text-foreground">Deelnemen via code</h2>
+        <div className="fixed inset-0 z-[9000]">
+          {/* backdrop */}
           <button
+            aria-label="Sluit sheet"
             onClick={() => setShowJoinSheet(false)}
-            className="text-xs font-bold text-neutral-400 cursor-pointer"
-          >
-            Annuleer
-          </button>
-        </div>
-
-        <form onSubmit={handleJoinCodeSubmit} className="space-y-4">
-          <input
-            type="text"
-            placeholder="CODE12"
-            required
-            maxLength={6}
-            value={joinCodeInput}
-            onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-            className="w-full bg-background border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-foreground"
+            className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
           />
-          <button
-            type="submit"
-            disabled={!userId}
-            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
+
+          {/* sheet */}
+          <div
+            className="absolute left-0 right-0 bottom-0 animate-sheet-in"
+            style={{
+              paddingBottom: SHEET_BOTTOM_OFFSET,
+            }}
           >
-            Deelnemen
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+            <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black text-foreground">Deelnemen via code</h2>
+                <button
+                  onClick={() => setShowJoinSheet(false)}
+                  className="text-xs font-bold text-neutral-400 cursor-pointer"
+                >
+                  Annuleer
+                </button>
+              </div>
+
+              <form onSubmit={handleJoinCodeSubmit} className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="CODE12"
+                  required
+                  maxLength={6}
+                  value={joinCodeInput}
+                  onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                  className="w-full bg-background border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-foreground"
+                />
+                <button
+                  type="submit"
+                  disabled={!userId}
+                  className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
+                >
+                  Deelnemen
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* SHEET C: MEMBERS LIST */}
       {showMembersSheet && (
-  <div className="fixed inset-0 z-[9000]">
-    {/* backdrop */}
-    <button
-      aria-label="Sluit ledenlijst"
-      onClick={() => {
-        setShowMembersSheet(false);
-        setSelectedGroupMembers([]);
-      }}
-      className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
-    />
+        <div className="fixed inset-0 z-[9000]">
+          {/* backdrop */}
+          <button
+            aria-label="Sluit ledenlijst"
+            onClick={() => setShowMembersSheet(false)}
+            className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
+          />
 
-    {/* full-height sheet panel achter navbar */}
-    <div
-      className="absolute left-0 right-0 bottom-0 top-12 bg-container-bg rounded-t-3xl border-t border-border shadow-2xl animate-sheet-in flex flex-col overflow-hidden"
-      style={{
-        paddingBottom: SHEET_BOTTOM_OFFSET,
-      }}
-    >
-      <div className="px-6 pt-5 pb-4 border-b border-border flex items-center justify-between shrink-0 bg-container-bg">
-        <div>
-          <h2 className="text-xl font-black text-foreground tracking-tight">
-            {selectedGroup?.name}
-          </h2>
-          <p className="text-xs font-bold text-neutral-400 mt-1">
-            {selectedGroupMembers.length} actieve leden
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setShowMembersSheet(false);
-            setSelectedGroupMembers([]);
-          }}
-          className="bg-neutral-100 text-neutral-800 px-4 py-2 rounded-full text-xs font-bold"
-        >
-          Sluiten
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-        {selectedGroupMembers.map((m) => (
+          {/* full-height sheet panel achter navbar */}
           <div
-            key={m.user_id}
-            className="flex items-center space-x-3 p-2.5 bg-background rounded-xl"
+            className="absolute left-0 right-0 bottom-0 top-12 bg-container-bg rounded-t-3xl border-t border-border shadow-2xl animate-sheet-in flex flex-col overflow-hidden"
+            style={{
+              paddingBottom: SHEET_BOTTOM_OFFSET,
+            }}
           >
-            <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
-              <Image
-                src={m.avatar_url}
-                alt="Avatar"
-                fill
-                className="object-cover"
-                unoptimized
-              />
+            <div className="px-6 pt-5 pb-4 border-b border-border flex items-center justify-between shrink-0 bg-container-bg">
+              <div>
+                <h2 className="text-xl font-black text-foreground tracking-tight">
+                  {selectedGroup?.name}
+                </h2>
+                <p className="text-xs font-bold text-neutral-400 mt-1">
+                  {selectedGroupMembers.length} actieve leden
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMembersSheet(false)}
+                className="bg-neutral-100 text-neutral-800 px-4 py-2 rounded-full text-xs font-bold"
+              >
+                Sluiten
+              </button>
             </div>
-            <p className="text-sm font-bold text-foreground">
-              {m.full_name}
-              {m.user_id === userId && (
-                <span className="ml-1 text-[9px] font-extrabold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">
-                  Jij
-                </span>
-              )}
-            </p>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+              {selectedGroupMembers.map((m) => (
+                <div
+                  key={m.user_id}
+                  className="flex items-center space-x-3 p-2.5 bg-background rounded-xl"
+                >
+                  <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
+                    <Image
+                      src={m.avatar_url}
+                      alt="Avatar"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                  <p className="text-sm font-bold text-foreground">
+                    {m.full_name}
+                    {m.user_id === userId && (
+                      <span className="ml-1 text-[9px] font-extrabold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">
+                        Jij
+                      </span>
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
+        </div>
+      )}
 
       {/* SHEET D: EDIT GROUP NAME */}
       {showEditSheet && (
-  <div className="fixed inset-0 z-[9000]">
-    {/* backdrop */}
-    <button
-      aria-label="Sluit sheet"
-      onClick={() => setShowEditSheet(false)}
-      className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
-    />
-
-    {/* sheet */}
-    <div
-      className="absolute left-0 right-0 bottom-0 animate-sheet-in"
-      style={{
-        paddingBottom: SHEET_BOTTOM_OFFSET,
-      }}
-    >
-      <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <h2 className="text-sm font-black text-foreground">
-            Groepsnaam wijzigen
-          </h2>
+        <div className="fixed inset-0 z-[9000]">
+          {/* backdrop */}
           <button
+            aria-label="Sluit sheet"
             onClick={() => setShowEditSheet(false)}
-            className="text-xs font-bold text-neutral-400 cursor-pointer"
-          >
-            Annuleer
-          </button>
-        </div>
-
-        <form onSubmit={handleEditGroupName} className="space-y-4">
-          <input
-            type="text"
-            value={editGroupNameInput}
-            onChange={(e) => setEditGroupNameInput(e.target.value)}
-            required
-            className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
+            className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
           />
-          <button
-            type="submit"
-            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition"
+
+          {/* sheet */}
+          <div
+            className="absolute left-0 right-0 bottom-0 animate-sheet-in"
+            style={{
+              paddingBottom: SHEET_BOTTOM_OFFSET,
+            }}
           >
-            Opslaan
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+            <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black text-foreground">
+                  Groepsnaam wijzigen
+                </h2>
+                <button
+                  onClick={() => setShowEditSheet(false)}
+                  className="text-xs font-bold text-neutral-400 cursor-pointer"
+                >
+                  Annuleer
+                </button>
+              </div>
+
+              <form onSubmit={handleEditGroupName} className="space-y-4">
+                <input
+                  type="text"
+                  value={editGroupNameInput}
+                  onChange={(e) => setEditGroupNameInput(e.target.value)}
+                  required
+                  className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition"
+                >
+                  Opslaan
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SHEET E: LEAVE CONFIRM */}
       {showLeaveConfirmSheet && (
