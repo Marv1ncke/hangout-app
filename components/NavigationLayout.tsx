@@ -100,7 +100,30 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
     }
   }
 
+  // App-opstart overlay: voorkomt de korte flits van de dashboard-UI vóórdat
+  // we weten of iemand ingelogd is. Verdwijnt zodra navData bekend is
+  // (succesvol geladen, of null = geen sessie -> redirect volgt hierboven).
+  const isBooting = !isAuthPage && navData === undefined;
+
   if (isAuthPage) return <>{children}</>;
+
+  if (isBooting) {
+    return (
+      <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-foreground/5 flex items-center justify-center animate-pulse">
+            <div className="w-7 h-7 rounded-lg bg-foreground/20 animate-[boot-scale_1.1s_ease-in-out_infinite]" />
+          </div>
+        </div>
+        <style>{`
+          @keyframes boot-scale {
+            0%, 100% { transform: scale(0.85); opacity: 0.6; }
+            50% { transform: scale(1); opacity: 1; }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   // 🛑 Info is hier verwijderd uit de navigatie-items
   const navItems = [
