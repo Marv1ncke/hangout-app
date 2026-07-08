@@ -809,7 +809,7 @@ export default function GroupsPage() {
 
       {/* SHEET C: MEMBERS LIST */}
       {showMembersSheet && (
-        <div className="fixed inset-0 z-[9000]">
+        <div className="fixed inset-0 z-[999999]">
           {/* backdrop */}
           <button
             aria-label="Sluit ledenlijst"

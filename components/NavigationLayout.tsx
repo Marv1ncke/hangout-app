@@ -183,8 +183,11 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
               }}
               className="flex flex-col items-center justify-center min-w-[60px]"
             >
-              <div className={isActive ? "text-white" : "text-neutral-400"}>
+              <div className={`relative ${isActive ? "text-white" : "text-neutral-400"}`}>
                 {item.icon}
+                {item.badge && (
+                  <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-background" />
+                )}
               </div>
               <span className={`text-[10px] font-bold mt-1 ${isActive ? "text-white" : "text-neutral-400"}`}>
                 {item.label}
