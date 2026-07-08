@@ -121,6 +121,8 @@ console.log("JOIN REQUESTS RAW:", data);
       {
         fallbackData: [],
         revalidateOnFocus: true,
+        revalidateOnMount: true,
+        dedupingInterval: 0,
       }
     );
 

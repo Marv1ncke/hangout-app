@@ -809,7 +809,7 @@ export default function GroupsPage() {
 
       {/* SHEET C: MEMBERS LIST */}
       {showMembersSheet && (
-        <div className="fixed inset-0 z-[9500]">
+        <div className="fixed inset-0" style={{ zIndex: 999999 }}>
           {/* backdrop */}
           <button
             aria-label="Sluit ledenlijst"
@@ -819,8 +819,9 @@ export default function GroupsPage() {
 
           {/* full-height sheet panel achter navbar */}
           <div
-            className="absolute left-0 right-0 top-12 bg-container-bg rounded-t-3xl border-t border-border shadow-2xl animate-sheet-in flex flex-col overflow-hidden"
+            className="absolute left-0 right-0 bg-container-bg rounded-t-3xl border-t border-border shadow-2xl animate-sheet-in flex flex-col overflow-hidden"
             style={{
+              top: "calc(64px + env(safe-area-inset-top))",
               bottom: SHEET_BOTTOM_OFFSET,
             }}
           >
