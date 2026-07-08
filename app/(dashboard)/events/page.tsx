@@ -5,296 +5,777 @@ import React, { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useNavData } from "@/hooks/useNavData";
 import { useEventsData } from "@/hooks/usePwaData";
-import { Plus } from "lucide-react";
+import {
+  Plus,
+  MapPin,
+  Shirt,
+  ShoppingBag,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  X,
+  Calendar as CalendarIcon,
+  List,
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
-type ViewType = "day" | "week" | "month" | "6month";
+type ViewType = "list" | "month";
+type RsvpStatus = "going" | "not_going";
 
+interface EventRow {
+  id: string;
+  group_id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string | null;
+  has_location: boolean;
+  location_name: string | null;
+  location: string | null;
+  has_dresscode: boolean;
+  dresscode: string | null;
+  has_bring_list: boolean;
+  created_by: string;
+  created_at: string;
+  event_rsvps: { user_id: string; status: RsvpStatus }[];
+}
 
+const WEEKDAY_LABELS = ["ma", "di", "wo", "do", "vr", "za", "zo"];
+const MONTH_LABELS = [
+  "januari", "februari", "maart", "april", "mei", "juni",
+  "juli", "augustus", "september", "oktober", "november", "december",
+];
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.toDateString() === b.toDateString();
+}
+
+// Bouwt een 6-weken grid (42 dagen) voor de maandweergave, ma-start
+function buildMonthGrid(year: number, month: number) {
+  const first = new Date(year, month, 1);
+  const firstWeekday = (first.getDay() + 6) % 7; // ma=0
+  const gridStart = new Date(year, month, 1 - firstWeekday);
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    return d;
+  });
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDayLabel(iso: string) {
+  return new Date(iso).toLocaleDateString("nl-BE", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+function isMultiDay(ev: EventRow) {
+  if (!ev.end_time) return false;
+  return !isSameDay(new Date(ev.start_time), new Date(ev.end_time));
+}
 
 export default function EventsPage() {
   const { data: navData } = useNavData();
 
   const activeGroupId = navData?.activeGroup?.id ?? null;
   const userId = navData?.user?.id ?? null;
-
-  // altijd een stabiele value naar de hook sturen
   const safeGroupId = activeGroupId ?? "";
-  const { events, groupProfiles, mutate } = useEventsData(safeGroupId);
+  const { events, mutate } = useEventsData(safeGroupId);
 
-  const [currentView, setCurrentView] = useState<ViewType>("month");
+  const [currentView, setCurrentView] = useState<ViewType>("list");
+  const [monthCursor, setMonthCursor] = useState(() => startOfDay(new Date()));
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [rsvpBusyId, setRsvpBusyId] = useState<string | null>(null);
 
-  const [eventType, setEventType] = useState<"hangout" | "trip">("hangout");
-
+  // create form state
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-
-  const [locationAddress, setLocationAddress] = useState("");
-  const [dresscode, setDresscode] = useState("");
-
-  const [endTime, setEndTime] = useState("");
-  const [hasEndTime, setHasEndTime] = useState(false);
-
+  const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [hasEnd, setHasEnd] = useState(false);
   const [endDate, setEndDate] = useState("");
-  const [startLocation, setStartLocation] = useState("");
-  const [endLocation, setEndLocation] = useState("");
-  const [stops, setStops] = useState<string[]>([]);
-  const [stopInput, setStopInput] = useState("");
-
-  const [bringInput, setBringInput] = useState("");
-  const [bringList, setBringList] = useState<string[]>([]);
-
+  const [endTime, setEndTime] = useState("");
+  const [hasLocation, setHasLocation] = useState(false);
+  const [locationName, setLocationName] = useState("");
+  const [location, setLocation] = useState("");
+  const [hasDresscode, setHasDresscode] = useState(false);
+  const [dresscode, setDresscode] = useState("");
+  const [hasBringList, setHasBringList] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // altijd hooks eerst uitvoeren, pas daarna conditioneel returnen
-  const filteredEvents = useMemo(() => {
-    if (!activeGroupId) return [];
+  const sortedEvents: EventRow[] = useMemo(
+    () => [...events].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()),
+    [events]
+  );
 
+  const upcomingEvents = useMemo(() => {
     const now = new Date();
+    return sortedEvents.filter((ev) => {
+      const end = ev.end_time ? new Date(ev.end_time) : new Date(ev.start_time);
+      return end >= startOfDay(now);
+    });
+  }, [sortedEvents]);
 
-    return [...events]
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .filter((event) => {
-        const d = new Date(event.date);
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, EventRow[]>();
+    for (const ev of sortedEvents) {
+      const start = startOfDay(new Date(ev.start_time));
+      const end = ev.end_time ? startOfDay(new Date(ev.end_time)) : start;
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        const key = cursor.toDateString();
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(ev);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+    return map;
+  }, [sortedEvents]);
 
-        if (currentView === "day") {
-          return d.toDateString() === now.toDateString();
-        }
+  const monthGrid = useMemo(
+    () => buildMonthGrid(monthCursor.getFullYear(), monthCursor.getMonth()),
+    [monthCursor]
+  );
 
-        if (currentView === "week") {
-          const start = new Date(now);
-          start.setDate(now.getDate() - now.getDay());
-          start.setHours(0, 0, 0, 0);
-
-          const end = new Date(start);
-          end.setDate(start.getDate() + 7);
-          end.setHours(23, 59, 59, 999);
-
-          return d >= start && d <= end;
-        }
-
-        if (currentView === "month") {
-          return (
-            d.getMonth() === now.getMonth() &&
-            d.getFullYear() === now.getFullYear()
-          );
-        }
-
-        if (currentView === "6month") {
-          const future = new Date(now);
-          future.setMonth(now.getMonth() + 6);
-          return d >= now && d <= future;
-        }
-
-        return true;
-      });
-  }, [events, currentView, activeGroupId]);
-
-  // guards PAS NA alle hooks
   if (!activeGroupId) {
     return (
-      <div className="p-10 text-center text-sm font-bold text-neutral-500">
-        Selecteer eerst een groep om events te bekijken.
+      <div className="p-10 text-center text-sm font-bold text-muted-foreground">
+        Selecteer eerst een groep om de agenda te bekijken.
       </div>
     );
   }
-
   if (!userId) {
     return (
-      <div className="p-10 text-center text-sm font-bold text-neutral-500">
-        User niet ingelogd.
+      <div className="p-10 text-center text-sm font-bold text-muted-foreground">
+        Je bent niet ingelogd.
       </div>
     );
   }
-
   const uid = userId;
 
-  async function toggleAttendance(event: any) {
-    const attendees: string[] = event.attendees || [];
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setStartDate("");
+    setStartTime("");
+    setHasEnd(false);
+    setEndDate("");
+    setEndTime("");
+    setHasLocation(false);
+    setLocationName("");
+    setLocation("");
+    setHasDresscode(false);
+    setDresscode("");
+    setHasBringList(false);
+    setFormError(null);
+  }
 
-    const updated = attendees.includes(uid)
-      ? attendees.filter((id) => id !== uid)
-      : [...attendees, uid];
+  async function handleRsvp(ev: EventRow, status: RsvpStatus) {
+    if (rsvpBusyId === ev.id) return;
+    setRsvpBusyId(ev.id);
 
+    const previous = events;
     mutate(
-      (old: any) => ({
-        ...old,
-        events: old.events.map((e: any) =>
-          e.id === event.id ? { ...e, attendees: updated } : e
-        ),
-      }),
+      (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          events: old.events.map((e: EventRow) => {
+            if (e.id !== ev.id) return e;
+            const withoutMe = e.event_rsvps.filter((r) => r.user_id !== uid);
+            return { ...e, event_rsvps: [...withoutMe, { user_id: uid, status }] };
+          }),
+        };
+      },
       false
     );
 
-    await supabase.from("events").update({ attendees: updated }).eq("id", event.id);
-    mutate();
+    try {
+      const { error } = await supabase
+        .from("event_rsvps")
+        .upsert({ event_id: ev.id, user_id: uid, status }, { onConflict: "event_id,user_id" });
+      if (error) throw error;
+      await mutate();
+    } catch {
+      mutate(previous, false);
+    } finally {
+      setRsvpBusyId(null);
+    }
   }
 
   async function createEvent(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
 
-    if (!title || !date || !locationAddress) {
-      setFormError("Vul alle verplichte velden in.");
+    if (!title || !startDate || !startTime) {
+      setFormError("Titel, datum en starttijd zijn verplicht.");
+      return;
+    }
+    if (hasEnd && (!endDate || !endTime)) {
+      setFormError("Vul een einddatum en -tijd in, of zet het eindmoment uit.");
       return;
     }
 
-    const payload: any = {
-      group_id: activeGroupId,
-      created_by: uid,
-      title,
-      date,
-      event_type: eventType,
-      location_address: locationAddress,
-      dresscode: dresscode || null,
-      bring_list: bringList.map((item) => ({ item, claims: [] })),
-      attendees: [uid],
-    };
+    setSubmitting(true);
 
-    if (eventType === "hangout") {
-      payload.time = time || null;
-      payload.end_time = hasEndTime ? endTime : null;
-    }
+    const startIso = new Date(`${startDate}T${startTime}`).toISOString();
+    const endIso = hasEnd ? new Date(`${endDate}T${endTime}`).toISOString() : null;
 
-    if (eventType === "trip") {
-      payload.end_date = endDate || null;
-      payload.start_location = startLocation || null;
-      payload.end_location = endLocation || null;
-      payload.intermediate_stops = stops;
-    }
+    const { error } = await supabase.rpc("create_event_atomic", {
+      p_group_id: activeGroupId,
+      p_title: title,
+      p_description: description || null,
+      p_start_time: startIso,
+      p_end_time: endIso,
+      p_has_location: hasLocation,
+      p_location_name: hasLocation ? locationName || null : null,
+      p_location: hasLocation ? location || null : null,
+      p_has_dresscode: hasDresscode,
+      p_dresscode: hasDresscode ? dresscode || null : null,
+      p_has_bring_list: hasBringList,
+    });
 
-    const tempId = crypto.randomUUID();
-
-    mutate(
-      (old: any) => ({
-        ...old,
-        events: [...old.events, { id: tempId, ...payload }],
-      }),
-      false
-    );
-
-    setShowCreateSheet(false);
-
-    const { error } = await supabase.from("events").insert(payload);
+    setSubmitting(false);
 
     if (error) {
       setFormError(error.message);
+      return;
     }
 
+    setShowCreateSheet(false);
+    resetForm();
     mutate();
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-2xl mx-auto space-y-5 pb-24">
       {/* HEADER */}
-      <div className="flex justify-between items-center border-b pb-4">
+      <div className="flex justify-between items-center pt-2">
         <div>
-          <h1 className="text-xl font-black">Agenda</h1>
-          <p className="text-xs text-neutral-500">Events per groep</p>
+          <h1 className="text-xl font-black tracking-tight">Agenda</h1>
+          <p className="text-xs text-muted-foreground">{navData?.activeGroup?.name}</p>
         </div>
-
         <button
           onClick={() => setShowCreateSheet(true)}
-          className="text-xs font-bold bg-black text-white px-3 py-2 rounded-xl flex items-center gap-1"
+          className="text-xs font-bold bg-btn-bg text-btn-text px-3.5 py-2.5 rounded-2xl flex items-center gap-1 active:scale-95 transition-transform"
         >
-          <Plus size={14} /> Nieuw
+          <Plus size={14} strokeWidth={2.5} /> Nieuw
         </button>
       </div>
 
       {/* VIEW SWITCH */}
-      <div className="flex gap-2 text-xs font-bold">
-        {(["day", "week", "month", "6month"] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setCurrentView(v)}
-            className={`px-2 py-1 rounded ${
-              currentView === v ? "bg-black text-white" : "bg-neutral-100"
-            }`}
-          >
-            {v}
-          </button>
-        ))}
+      <div className="flex gap-1 bg-container-bg rounded-2xl p-1 w-fit">
+        <button
+          onClick={() => setCurrentView("list")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors",
+            currentView === "list" ? "bg-btn-bg text-btn-text" : "text-muted-foreground"
+          )}
+        >
+          <List size={13} /> Lijst
+        </button>
+        <button
+          onClick={() => setCurrentView("month")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors",
+            currentView === "month" ? "bg-btn-bg text-btn-text" : "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon size={13} /> Maand
+        </button>
       </div>
 
-      {/* EVENTS */}
-      {filteredEvents.length === 0 ? (
-        <p className="text-xs text-neutral-500">Geen events</p>
-      ) : (
-        <div className="space-y-3">
-          {filteredEvents.map((event) => {
-            const going = event.attendees?.includes(uid);
-
-            return (
-              <div key={event.id} className="border p-3 rounded-xl space-y-2">
-                <div className="flex justify-between">
-                  <h3 className="font-bold">{event.title}</h3>
-
-                  <button
-                    onClick={() => toggleAttendance(event)}
-                    className={`text-xs px-2 py-1 rounded ${
-                      going ? "bg-red-100" : "bg-neutral-100"
-                    }`}
-                  >
-                    {going ? "Ik ga" : "Ga mee"}
-                  </button>
-                </div>
-
-                <p className="text-xs text-neutral-500">{event.location_address}</p>
-
-                <div className="flex gap-2 text-xs text-neutral-400">
-                  {event.attendees?.length || 0} deelnemers
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {currentView === "month" && (
+        <MonthView
+          monthCursor={monthCursor}
+          setMonthCursor={setMonthCursor}
+          grid={monthGrid}
+          eventsByDay={eventsByDay}
+          selectedDay={selectedDay}
+          setSelectedDay={setSelectedDay}
+        />
       )}
 
-      {/* CREATE MODAL */}
+      {currentView === "month" && selectedDay && (
+        <DayAgenda
+          day={selectedDay}
+          events={eventsByDay.get(selectedDay.toDateString()) ?? []}
+          uid={uid}
+          expandedId={expandedId}
+          setExpandedId={setExpandedId}
+          onRsvp={handleRsvp}
+          rsvpBusyId={rsvpBusyId}
+        />
+      )}
+
+      {currentView === "list" && (
+        <ListView
+          events={upcomingEvents}
+          uid={uid}
+          expandedId={expandedId}
+          setExpandedId={setExpandedId}
+          onRsvp={handleRsvp}
+          rsvpBusyId={rsvpBusyId}
+        />
+      )}
+
+      {/* CREATE SHEET */}
       {showCreateSheet && (
-        <div className="fixed inset-0 bg-black/40 flex items-end justify-center">
-          <form
-            onSubmit={createEvent}
-            className="bg-white w-full max-w-md p-4 rounded-t-2xl space-y-3"
-          >
-            <input
-              placeholder="Titel"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full border p-2 text-xs"
-            />
+        <CreateEventSheet
+          title={title} setTitle={setTitle}
+          description={description} setDescription={setDescription}
+          startDate={startDate} setStartDate={setStartDate}
+          startTime={startTime} setStartTime={setStartTime}
+          hasEnd={hasEnd} setHasEnd={setHasEnd}
+          endDate={endDate} setEndDate={setEndDate}
+          endTime={endTime} setEndTime={setEndTime}
+          hasLocation={hasLocation} setHasLocation={setHasLocation}
+          locationName={locationName} setLocationName={setLocationName}
+          location={location} setLocation={setLocation}
+          hasDresscode={hasDresscode} setHasDresscode={setHasDresscode}
+          dresscode={dresscode} setDresscode={setDresscode}
+          hasBringList={hasBringList} setHasBringList={setHasBringList}
+          formError={formError}
+          submitting={submitting}
+          onSubmit={createEvent}
+          onClose={() => { setShowCreateSheet(false); resetForm(); }}
+        />
+      )}
+    </div>
+  );
+}
 
-            <input
-              placeholder="Locatie"
-              value={locationAddress}
-              onChange={(e) => setLocationAddress(e.target.value)}
-              className="w-full border p-2 text-xs"
-            />
+// ============================================================
+// Maandweergave
+// ============================================================
+function MonthView({
+  monthCursor, setMonthCursor, grid, eventsByDay, selectedDay, setSelectedDay,
+}: {
+  monthCursor: Date;
+  setMonthCursor: (d: Date) => void;
+  grid: Date[];
+  eventsByDay: Map<string, EventRow[]>;
+  selectedDay: Date | null;
+  setSelectedDay: (d: Date | null) => void;
+}) {
+  const today = new Date();
 
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full border p-2 text-xs"
-            />
+  function shiftMonth(delta: number) {
+    const next = new Date(monthCursor);
+    next.setMonth(next.getMonth() + delta);
+    setMonthCursor(next);
+    setSelectedDay(null);
+  }
 
-            {formError && <p className="text-xs text-red-500">{formError}</p>}
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between px-1">
+        <button
+          onClick={() => shiftMonth(-1)}
+          className="size-8 flex items-center justify-center rounded-full hover:bg-container-bg active:scale-90 transition-transform"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="font-bold text-sm capitalize">
+          {MONTH_LABELS[monthCursor.getMonth()]} {monthCursor.getFullYear()}
+        </span>
+        <button
+          onClick={() => shiftMonth(1)}
+          className="size-8 flex items-center justify-center rounded-full hover:bg-container-bg active:scale-90 transition-transform"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
 
-            <button className="w-full bg-black text-white text-xs py-2 rounded">
-              Aanmaken
-            </button>
+      <div className="grid grid-cols-7 text-center text-[10px] font-bold text-muted-foreground">
+        {WEEKDAY_LABELS.map((d) => <div key={d}>{d}</div>)}
+      </div>
 
+      <div className="grid grid-cols-7 gap-y-1">
+        {grid.map((day, i) => {
+          const inMonth = day.getMonth() === monthCursor.getMonth();
+          const dayEvents = eventsByDay.get(day.toDateString()) ?? [];
+          const isToday = isSameDay(day, today);
+          const isSelected = selectedDay && isSameDay(day, selectedDay);
+
+          return (
             <button
-              type="button"
-              onClick={() => setShowCreateSheet(false)}
-              className="w-full text-xs"
+              key={i}
+              onClick={() => setSelectedDay(isSelected ? null : day)}
+              className="flex flex-col items-center gap-1 py-1"
             >
-              sluiten
+              <span
+                className={cn(
+                  "size-7 flex items-center justify-center rounded-full text-xs font-semibold transition-colors",
+                  !inMonth && "text-muted-foreground/40",
+                  inMonth && !isSelected && !isToday && "text-foreground",
+                  isToday && !isSelected && "text-btn-bg font-black",
+                  isSelected && "bg-btn-bg text-btn-text"
+                )}
+              >
+                {day.getDate()}
+              </span>
+              <div className="flex gap-0.5 h-1.5">
+                {dayEvents.slice(0, 3).map((ev) => (
+                  <span key={ev.id} className="size-1.5 rounded-full bg-foreground/60" />
+                ))}
+              </div>
             </button>
-          </form>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Dag-detail onder de maandkalender
+// ============================================================
+function DayAgenda({
+  day, events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId,
+}: {
+  day: Date;
+  events: EventRow[];
+  uid: string;
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+  onRsvp: (ev: EventRow, status: RsvpStatus) => void;
+  rsvpBusyId: string | null;
+}) {
+  return (
+    <div className="space-y-2 pt-1 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+      <p className="text-xs font-bold text-muted-foreground capitalize px-1">
+        {day.toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long" })}
+      </p>
+      {events.length === 0 ? (
+        <p className="text-xs text-muted-foreground px-1">Geen activiteiten op deze dag.</p>
+      ) : (
+        events.map((ev) => (
+          <EventCard
+            key={ev.id}
+            ev={ev}
+            uid={uid}
+            expanded={expandedId === ev.id}
+            onToggle={() => setExpandedId(expandedId === ev.id ? null : ev.id)}
+            onRsvp={onRsvp}
+            busy={rsvpBusyId === ev.id}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Lijstweergave
+// ============================================================
+function ListView({
+  events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId,
+}: {
+  events: EventRow[];
+  uid: string;
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+  onRsvp: (ev: EventRow, status: RsvpStatus) => void;
+  rsvpBusyId: string | null;
+}) {
+  if (events.length === 0) {
+    return (
+      <div className="py-16 text-center space-y-1.5">
+        <p className="text-sm font-bold text-foreground">Nog geen activiteiten gepland</p>
+        <p className="text-xs text-muted-foreground">Tik op &apos;Nieuw&apos; om er een te plannen.</p>
+      </div>
+    );
+  }
+
+  // groeperen per dag-label voor duidelijke scheiding
+  const groups: { label: string; items: EventRow[] }[] = [];
+  for (const ev of events) {
+    const label = formatDayLabel(ev.start_time);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(ev);
+    else groups.push({ label, items: [ev] });
+  }
+
+  return (
+    <div className="space-y-5">
+      {groups.map((g) => (
+        <div key={g.label} className="space-y-2">
+          <p className="text-xs font-bold text-muted-foreground capitalize px-1">{g.label}</p>
+          <div className="space-y-2">
+            {g.items.map((ev) => (
+              <EventCard
+                key={ev.id}
+                ev={ev}
+                uid={uid}
+                expanded={expandedId === ev.id}
+                onToggle={() => setExpandedId(expandedId === ev.id ? null : ev.id)}
+                onRsvp={onRsvp}
+                busy={rsvpBusyId === ev.id}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// Event kaart (samengevouwen + expand)
+// ============================================================
+function EventCard({
+  ev, uid, expanded, onToggle, onRsvp, busy,
+}: {
+  ev: EventRow;
+  uid: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onRsvp: (ev: EventRow, status: RsvpStatus) => void;
+  busy: boolean;
+}) {
+  const myRsvp = ev.event_rsvps.find((r) => r.user_id === uid)?.status ?? null;
+  const going = ev.event_rsvps.filter((r) => r.status === "going");
+  const notGoing = ev.event_rsvps.filter((r) => r.status === "not_going");
+  const multiDay = isMultiDay(ev);
+
+  return (
+    <div className="rounded-2xl bg-container-bg overflow-hidden transition-all">
+      <button onClick={onToggle} className="w-full text-left p-3.5 flex items-start gap-3">
+        <div className="flex flex-col items-center justify-center w-11 shrink-0 pt-0.5">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase">
+            {new Date(ev.start_time).toLocaleDateString("nl-BE", { month: "short" })}
+          </span>
+          <span className="text-lg font-black leading-none">
+            {new Date(ev.start_time).getDate()}
+          </span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-sm truncate">{ev.title}</h3>
+            {multiDay && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-foreground/10 text-muted-foreground shrink-0">
+                meerdaags
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {formatTime(ev.start_time)}
+            {ev.end_time && ` – ${multiDay ? new Date(ev.end_time).toLocaleDateString("nl-BE", { day: "numeric", month: "short" }) + " " : ""}${formatTime(ev.end_time)}`}
+            {ev.has_location && ev.location_name && (
+              <span className="inline-flex items-center gap-0.5 ml-1.5">
+                <MapPin size={10} className="inline -mt-0.5" /> {ev.location_name}
+              </span>
+            )}
+          </p>
+        </div>
+
+        {going.length > 0 && (
+          <AvatarGroup className="shrink-0 mt-0.5">
+            {going.slice(0, 3).map((r) => (
+              <Avatar key={r.user_id} size="sm">
+                <AvatarFallback>{r.user_id.slice(0, 1).toUpperCase()}</AvatarFallback>
+              </Avatar>
+            ))}
+          </AvatarGroup>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="px-3.5 pb-3.5 pt-0.5 space-y-3 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+          {ev.description && (
+            <p className="text-xs text-foreground/80 leading-relaxed">{ev.description}</p>
+          )}
+
+          {ev.has_location && ev.location && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <MapPin size={12} /> {ev.location}
+            </div>
+          )}
+          {ev.has_dresscode && ev.dresscode && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Shirt size={12} /> {ev.dresscode}
+            </div>
+          )}
+          {ev.has_bring_list && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <ShoppingBag size={12} /> Neem zelf iets mee
+            </div>
+          )}
+
+          {/* RSVP knoppen */}
+          <div className="flex gap-2 pt-1">
+            <button
+              disabled={busy}
+              onClick={() => onRsvp(ev, "going")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95",
+                myRsvp === "going" ? "bg-btn-bg text-btn-text" : "bg-background text-foreground border border-border"
+              )}
+            >
+              <Check size={13} /> Ik kom
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => onRsvp(ev, "not_going")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95",
+                myRsvp === "not_going" ? "bg-foreground/10 text-foreground" : "bg-background text-foreground border border-border"
+              )}
+            >
+              <X size={13} /> Kan niet
+            </button>
+          </div>
+
+          {/* Deelnemerslijst */}
+          {(going.length > 0 || notGoing.length > 0) && (
+            <div className="space-y-1.5 pt-1">
+              {going.length > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="font-bold text-foreground">{going.length}</span> komen
+                </p>
+              )}
+              {notGoing.length > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="font-bold text-foreground">{notGoing.length}</span> komen niet
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+// ============================================================
+// Create sheet
+// ============================================================
+function CreateEventSheet(props: any) {
+  const {
+    title, setTitle, description, setDescription,
+    startDate, setStartDate, startTime, setStartTime,
+    hasEnd, setHasEnd, endDate, setEndDate, endTime, setEndTime,
+    hasLocation, setHasLocation, locationName, setLocationName, location, setLocation,
+    hasDresscode, setHasDresscode, dresscode, setDresscode,
+    hasBringList, setHasBringList,
+    formError, submitting, onSubmit, onClose,
+  } = props;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/30 flex items-end justify-center animate-in fade-in-0 duration-150">
+      <form
+        onSubmit={onSubmit}
+        className="bg-background w-full max-w-md max-h-[88dvh] overflow-y-auto p-4 rounded-t-3xl space-y-3 animate-in slide-in-from-bottom-4 duration-200"
+      >
+        <div className="w-9 h-1 bg-border rounded-full mx-auto mb-1" />
+        <h2 className="font-black text-base">Nieuwe activiteit</h2>
+
+        <input
+          placeholder="Titel"
+          value={title}
+          onChange={(e: any) => setTitle(e.target.value)}
+          className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none"
+        />
+        <textarea
+          placeholder="Beschrijving (optioneel)"
+          value={description}
+          onChange={(e: any) => setDescription(e.target.value)}
+          className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none resize-none"
+          rows={2}
+        />
+
+        <div className="grid grid-cols-2 gap-2">
+          <input type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)}
+            className="bg-container-bg p-3 text-sm rounded-xl outline-none" />
+          <input type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)}
+            className="bg-container-bg p-3 text-sm rounded-xl outline-none" />
+        </div>
+
+        <ToggleRow label="Eindmoment toevoegen" checked={hasEnd} onChange={setHasEnd} />
+        {hasEnd && (
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)}
+              className="bg-container-bg p-3 text-sm rounded-xl outline-none" />
+            <input type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)}
+              className="bg-container-bg p-3 text-sm rounded-xl outline-none" />
+          </div>
+        )}
+
+        <ToggleRow label="Locatie toevoegen" checked={hasLocation} onChange={setHasLocation} />
+        {hasLocation && (
+          <div className="space-y-2">
+            <input placeholder="Naam locatie (bv. Bij Sam)" value={locationName}
+              onChange={(e: any) => setLocationName(e.target.value)}
+              className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none" />
+            <input placeholder="Adres" value={location}
+              onChange={(e: any) => setLocation(e.target.value)}
+              className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none" />
+          </div>
+        )}
+
+        <ToggleRow label="Dresscode toevoegen" checked={hasDresscode} onChange={setHasDresscode} />
+        {hasDresscode && (
+          <input placeholder="Dresscode" value={dresscode}
+            onChange={(e: any) => setDresscode(e.target.value)}
+            className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none" />
+        )}
+
+        <ToggleRow label="Breng-lijst inschakelen" checked={hasBringList} onChange={setHasBringList} />
+
+        {formError && <p className="text-xs text-destructive font-medium">{formError}</p>}
+
+        <button
+          disabled={submitting}
+          className="w-full bg-btn-bg text-btn-text text-sm font-bold py-3 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
+        >
+          {submitting ? "Aanmaken..." : "Aanmaken"}
+        </button>
+        <button type="button" onClick={onClose} className="w-full text-xs text-muted-foreground py-1">
+          Annuleren
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="w-full flex items-center justify-between py-1"
+    >
+      <span className="text-sm font-medium">{label}</span>
+      <span
+        className={cn(
+          "w-10 h-6 rounded-full transition-colors relative",
+          checked ? "bg-btn-bg" : "bg-container-bg"
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 size-5 rounded-full bg-background transition-transform shadow-sm",
+            checked ? "translate-x-4.5 left-0.5" : "translate-x-0 left-0.5"
+          )}
+        />
+      </span>
+    </button>
   );
 }

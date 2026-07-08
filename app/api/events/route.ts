@@ -34,8 +34,9 @@ export async function GET(request: Request) {
 
   const { data: events } = await supabase
     .from("events")
-    .select("*")
-    .eq("group_id", groupId);
+    .select("*, event_rsvps(user_id, status)")
+    .eq("group_id", groupId)
+    .order("start_time", { ascending: true });
 
   return NextResponse.json({ events: events ?? [], groupProfiles: profilesMap });
 }
