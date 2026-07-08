@@ -35,19 +35,14 @@ export default function GroupsPage() {
   const { data: cachedGroupMembers = [] } = useGroupMembers(selectedGroup?.id);
   
   const activeGroupId = (navData as any)?.activeGroup?.id || null;
-  
-  // FIX: userId state met directe fallback-synchronisatie om greyed-out knoppen te voorkomen
-  const [userId, setUserId] = useState<string>("");
 
-  useEffect(() => {
-    if (navData?.user?.id) {
-      setUserId(navData.user.id);
-    } else {
-      supabase.auth.getUser().then(({ data }) => {
-        if (data?.user?.id) setUserId(data.user.id);
-      });
-    }
-  }, [navData]);
+  // userId komt rechtstreeks uit navData (SWR levert direct de localStorage-cache,
+  // dus dit is bij een warme cache al gevuld op de allereerste render — geen aparte
+  // fetch/useState/useEffect race meer nodig).
+  const userId = navData?.user?.id ?? "";
+  // isAuthLoading is losgekoppeld van userId zelf: knoppen mogen pas "niet ingelogd"
+  // tonen zodra we zeker weten dat SWR klaar is (niet tijdens de initiële fetch).
+  const isAuthLoading = navData === undefined;
 
   const groups = ((navData as any)?.groups || []) as Group[];
 
@@ -239,47 +234,22 @@ export default function GroupsPage() {
     setIsProtected(false);
     setShowCreateSheet(false);
 
-    const { data: insertedGroups, error: groupError } = await supabase
-      .from("groups")
-      .insert({
-        name: trimmedName,
-        join_code: generatedCode,
-        invite_code: generatedCode,
-        is_protected: isProtected,
-        created_by: userId,
-      })
-      .select("id, name, join_code, invite_code, is_protected, created_by");
+    // Eén atomaire RPC: insert group + insert member + update profile gebeuren
+    // nu allemaal in dezelfde DB-transactie. Geen race condition meer waarbij
+    // een groep met 0 leden kan ontstaan.
+    const { data: createdGroup, error: rpcError } = await supabase.rpc(
+      "create_group_atomic",
+      {
+        p_name: trimmedName,
+        p_join_code: generatedCode,
+        p_is_protected: isProtected,
+      }
+    );
 
-    if (groupError || !insertedGroups || insertedGroups.length === 0) {
-      showNotification(
-        "Fout bij aanmaken",
-        groupError?.message || "Geen groep teruggekregen"
-      );
+    if (rpcError || !createdGroup) {
+      showNotification("Fout bij aanmaken", rpcError?.message || "Onbekende fout");
       await mutateNav();
       return;
-    }
-
-    const createdGroup = insertedGroups[0] as Group;
-
-    const { error: memberError } = await supabase.from("group_members").insert({
-      group_id: createdGroup.id,
-      user_id: userId,
-      status: "active",
-    });
-
-    if (memberError) {
-      showNotification("Groep aangemaakt, maar lid toevoegen mislukte", memberError.message);
-      await mutateNav();
-      return;
-    }
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ selected_group_id: createdGroup.id })
-      .eq("id", userId);
-
-    if (profileError) {
-      showNotification("Groep aangemaakt, maar selecteren mislukte", profileError.message);
     }
 
     await forceNavRefresh();
@@ -294,67 +264,35 @@ export default function GroupsPage() {
     const code = joinCodeInput.trim().toUpperCase();
     if (!code || !userId) return;
 
-    const { data: targetGroup, error: findError } = await supabase
-      .from("groups")
-      .select("id, name, join_code, invite_code, is_protected, created_by")
-      .eq("join_code", code)
-      .maybeSingle();
+    // Eén atomaire RPC: zoekt de groep, controleert bestaand lidmaatschap, en
+    // insert member + update profile in dezelfde transactie. De DB is hier de
+    // enige bron van waarheid over "ben ik al lid" — geen dubbele check + insert
+    // vanuit de client die elkaar in de weg kunnen zitten bij een dubbelklik.
+    const { data: result, error: rpcError } = await supabase.rpc(
+      "join_group_atomic",
+      { p_join_code: code }
+    );
 
-    if (findError || !targetGroup) {
-      showNotification("Code niet gevonden 🔍", "Controleer de code en probeer opnieuw.");
+    if (rpcError) {
+      console.error("join_group_atomic error:", rpcError);
+      showNotification("Code niet gevonden 🔍", rpcError.message || "Controleer de code en probeer opnieuw.");
       return;
     }
 
-    const alreadyMember = groups.some((g) => g.id === targetGroup.id);
-    if (alreadyMember) {
-      showNotification("Je zit al in deze groep");
+    const targetGroup = result.group as Group;
+    const status = result.status as "active" | "pending";
+
+    if (result.already_member) {
+      showNotification(
+        status === "pending" ? "Je verzoek staat al open 📩" : "Je zit al in deze groep"
+      );
       setJoinCodeInput("");
       setShowJoinSheet(false);
+      if (status === "active") await forceNavRefresh();
       return;
     }
 
-    const { data: existingMembership, error: existingError } = await supabase
-      .from("group_members")
-      .select("id, status")
-      .eq("group_id", targetGroup.id)
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (existingError) {
-      showNotification("Kon lidmaatschap niet controleren", existingError.message);
-      return;
-    }
-
-    if (existingMembership?.status === "active") {
-      showNotification("Je zit al in deze groep");
-      setJoinCodeInput("");
-      setShowJoinSheet(false);
-      await forceNavRefresh();
-      return;
-    }
-
-    if (existingMembership?.status === "pending") {
-      showNotification("Je verzoek staat al open 📩");
-      setJoinCodeInput("");
-      setShowJoinSheet(false);
-      return;
-    }
-
-    if (targetGroup.is_protected) {
-      const { error: joinError } = await supabase.from("group_members").insert({
-        group_id: targetGroup.id,
-        user_id: userId,
-        status: "pending",
-      });
-
-      if (joinError) {
-        showNotification(
-          "Verzoek verzenden mislukt",
-          joinError.message || "Probeer later opnieuw."
-        );
-        return;
-      }
-
+    if (status === "pending") {
       showNotification(
         "Verzoek verzonden 📩",
         `Wacht tot leden van ${targetGroup.name} je accepteren.`
@@ -364,44 +302,7 @@ export default function GroupsPage() {
       return;
     }
 
-    mutateNav(
-      (old: any) => ({
-        ...old,
-        groups: [...(old?.groups || []), targetGroup],
-        activeGroup: targetGroup,
-        profile: old?.profile
-          ? { ...old.profile, selected_group_id: targetGroup.id }
-          : old?.profile,
-      }),
-      false
-    );
-
-    const { error: joinError } = await supabase.from("group_members").insert({
-      group_id: targetGroup.id,
-      user_id: userId,
-      status: "active",
-    });
-
-    if (joinError) {
-      showNotification(
-        "Lidmaatschap mislukt 🔒",
-        joinError.message || "Je zit al in deze groep of er ging iets mis."
-      );
-      await forceNavRefresh();
-      return;
-    }
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ selected_group_id: targetGroup.id })
-      .eq("id", userId);
-
-    if (profileError) {
-      showNotification("Groep toegevoegd, maar activeren mislukte", profileError.message);
-    } else {
-      showNotification("Groep toegevoegd! ✨", `Je bent nu lid van ${targetGroup.name}`);
-    }
-
+    showNotification("Groep toegevoegd! ✨", `Je bent nu lid van ${targetGroup.name}`);
     setJoinCodeInput("");
     setShowJoinSheet(false);
     await forceNavRefresh();
@@ -545,62 +446,18 @@ export default function GroupsPage() {
     setShowDeleteConfirm(false);
     setShowLeaveConfirmSheet(false);
 
-    // remove current user's own data in that group
-    const leaveMembershipPromise = supabase
-      .from("group_members")
-      .delete()
-      .eq("group_id", groupId)
-      .eq("user_id", userId);
+    // Eén atomaire RPC: verwijdert membership (of hele groep bij laatste lid,
+    // met ON DELETE CASCADE voor members/events/attendance/availability) en
+    // herbepaalt selected_group_id, allemaal in dezelfde transactie.
+    const { error: rpcError } = await supabase.rpc("leave_group_atomic", {
+      p_group_id: groupId,
+    });
 
-    const leaveAvailabilityPromise = supabase
-      .from("availability_slots")
-      .delete()
-      .eq("group_id", groupId)
-      .eq("user_id", userId);
-
-    const [leaveMembershipRes, leaveAvailabilityRes] = await Promise.all([
-      leaveMembershipPromise,
-      leaveAvailabilityPromise,
-    ]);
-
-    if (leaveMembershipRes.error) {
-      showNotification("Groep verlaten mislukt", leaveMembershipRes.error.message);
-      await forceNavRefresh();
-      return;
-    }
-
-    if (deleteEntireGroup) {
-      const [
-        deleteMembersRes,
-        deleteAvailabilityRes,
-        deleteEventsRes,
-        deleteGroupRes,
-      ] = await Promise.all([
-        supabase.from("group_members").delete().eq("group_id", groupId),
-        supabase.from("availability_slots").delete().eq("group_id", groupId),
-        supabase.from("events").delete().eq("group_id", groupId),
-        supabase.from("groups").delete().eq("id", groupId),
-      ]);
-
-      const deleteError =
-        deleteMembersRes.error ||
-        deleteAvailabilityRes.error ||
-        deleteEventsRes.error ||
-        deleteGroupRes.error;
-
-      if (deleteError) {
-        showNotification("Groep verwijderen mislukte", deleteError.message);
-      }
-    }
-
-    // update selected_group_id to fallback
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ selected_group_id: nextFallbackId })
-      .eq("id", userId);
-
-    if (profileError) {
-      showNotification("Profiel-update mislukt", profileError.message);
+    if (rpcError) {
+      showNotification(
+        deleteEntireGroup ? "Groep verwijderen mislukte" : "Groep verlaten mislukt",
+        rpcError.message
+      );
     }
 
     await forceNavRefresh();

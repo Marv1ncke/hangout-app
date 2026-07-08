@@ -2,11 +2,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Link } from "next-view-transitions";
 import { Calendar, Users, CreditCard, Bell, ChevronDown } from "lucide-react";
+import { useNavData } from "@/hooks/useNavData";
 
 interface NavigationLayoutProps {
   children: React.ReactNode;
@@ -16,91 +17,69 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [profile, setProfile] = useState<{ full_name: string; avatar_url: string } | null>(null);
-  const [email, setEmail] = useState("");
+  // Eén gedeelde databron voor de hele app. Dit is dezelfde SWR-cache/key als
+  // groups/page.tsx gebruikt, dus een mutateNav() daar (bv. na groep aanmaken/
+  // wisselen) werkt deze navigatiebalk automatisch bij — geen los "groupChanged"
+  // event meer nodig als los sync-mechanisme.
+  const { data: navData, mutate: mutateNav } = useNavData();
   const [pendingCount, setPendingCount] = useState(0);
-  const [activeGroup, setActiveGroup] = useState<{ id: string; name: string } | null>(null);
-  const [userGroups, setUserGroups] = useState<any[]>([]);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/auth");
 
-  const fetchNavData = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      router.push("/login");
-      return;
-    }
+  const profile = navData?.profile
+    ? { full_name: navData.profile.full_name || "Gebruiker", avatar_url: navData.profile.avatar_url || "" }
+    : null;
+  const email = navData?.user?.email ?? "";
+  const activeGroup = navData?.activeGroup ?? null;
+  const userGroups = navData?.groups ?? [];
 
-    setEmail(session.user.email ?? "");
-
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("full_name, avatar_url, selected_group_id")
-      .eq("id", session.user.id)
-      .maybeSingle();
-
-    if (profileData) {
-      setProfile({
-        full_name: profileData.full_name || "Gebruiker",
-        avatar_url: profileData.avatar_url || "",
-      });
-    }
-
-    const { data: myMemberships } = await supabase
-      .from("group_members")
-      .select("group_id, status")
-      .eq("user_id", session.user.id);
-
-    const activeMemberships = myMemberships?.filter(m => m.status === "active") || [];
-    const pendingMemberships = myMemberships?.filter(m => m.status === "pending") || [];
-
-    if (activeMemberships.length > 0) {
-      const myGroupIds = activeMemberships.map(m => m.group_id);
-
-      const { data: groupsDetails } = await supabase
-        .from("groups")
-        .select("id, name")
-        .in("id", myGroupIds);
-
-      if (groupsDetails) {
-        setUserGroups(groupsDetails);
-        const current =
-          groupsDetails.find(g => g.id === profileData?.selected_group_id) ||
-          groupsDetails[0];
-        setActiveGroup(current || null);
-      }
-
-      const { count } = await supabase
-        .from("group_members")
-        .select("*", { count: "exact", head: true })
-        .in("group_id", myGroupIds)
-        .eq("status", "pending");
-
-      setPendingCount((count || 0) + pendingMemberships.length);
-    }
-  }, [router]);
-
+  // Stuur niet-ingelogde gebruikers door zodra we zeker weten dat er geen sessie is
+  // (navData === null na een geslaagde fetch betekent: geen user).
   useEffect(() => {
     if (isAuthPage) return;
-    fetchNavData();
+    if (navData === null) router.push("/login");
+  }, [navData, isAuthPage, router]);
 
-    window.addEventListener("groupChanged", fetchNavData);
-    return () => window.removeEventListener("groupChanged", fetchNavData);
-  }, [pathname, isAuthPage, fetchNavData]);
+  // Pending-count blijft een losse, lichte query (los van de hoofd-nav-data),
+  // want die moet vaker kunnen verversen zonder de hele nav cache te triggeren.
+  useEffect(() => {
+    if (isAuthPage || !navData?.groups?.length) {
+      setPendingCount(0);
+      return;
+    }
+    const groupIds = navData.groups.map((g: any) => g.id);
+    supabase
+      .from("group_members")
+      .select("*", { count: "exact", head: true })
+      .in("group_id", groupIds)
+      .eq("status", "pending")
+      .then(({ count }) => setPendingCount(count || 0));
+  }, [isAuthPage, navData?.groups]);
 
   async function handleGroupSwitch(groupId: string) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!navData?.user?.id) return;
 
-    await supabase
+    // Optimistic update: nav-balk wisselt direct, geen wachttijd.
+    mutateNav(
+      (old: any) => ({
+        ...old,
+        activeGroup: old?.groups?.find((g: any) => g.id === groupId) ?? old?.activeGroup,
+        profile: old?.profile ? { ...old.profile, selected_group_id: groupId } : old?.profile,
+      }),
+      false
+    );
+    setShowGroupSelector(false);
+
+    const { error } = await supabase
       .from("profiles")
       .update({ selected_group_id: groupId })
-      .eq("id", session.user.id);
+      .eq("id", navData.user.id);
 
-    setShowGroupSelector(false);
-    window.dispatchEvent(new Event("groupChanged"));
+    if (error) {
+      await mutateNav();
+    }
   }
 
   if (isAuthPage) return <>{children}</>;
