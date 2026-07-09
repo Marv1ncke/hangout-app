@@ -9,6 +9,7 @@ import { useNavData } from "../../../hooks/useNavData";
 import { mutate } from "swr";
 import { Check, Share2, Copy, Users, Pencil, LogOut, X } from "lucide-react";
 import { useGroupMembers } from "../../../hooks/useNavData"; 
+import { DragSheet } from "@/components/ui/drag-sheet";
 
 interface Group {
   id: string;
@@ -808,70 +809,41 @@ export default function GroupsPage() {
       )}
 
       {/* SHEET C: MEMBERS LIST */}
-      {showMembersSheet && (
-        <div className="fixed inset-0" style={{ zIndex: 999999 }}>
-          {/* backdrop */}
-          <button
-            aria-label="Sluit ledenlijst"
-            onClick={() => setShowMembersSheet(false)}
-            className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
-          />
-
-          {/* full-height sheet panel achter navbar */}
-          <div
-            className="absolute left-0 right-0 bg-container-bg rounded-t-3xl border-t border-border shadow-2xl animate-sheet-in flex flex-col overflow-hidden"
-            style={{
-              top: "calc(64px + env(safe-area-inset-top))",
-              bottom: SHEET_BOTTOM_OFFSET,
-            }}
-          >
-            <div className="px-6 pt-5 pb-4 border-b border-border flex items-center justify-between shrink-0 bg-container-bg">
-              <div>
-                <h2 className="text-xl font-black text-foreground tracking-tight">
-                  {selectedGroup?.name}
-                </h2>
-                <p className="text-xs font-bold text-neutral-400 mt-1">
-                  {selectedGroupMembers.length} actieve leden
-                </p>
+      <DragSheet
+        open={showMembersSheet}
+        onClose={() => setShowMembersSheet(false)}
+        title={selectedGroup?.name}
+        subtitle={`${selectedGroupMembers.length} actieve leden`}
+        topOffset="calc(64px + env(safe-area-inset-top))"
+        bottomOffset={SHEET_BOTTOM_OFFSET}
+      >
+        <div className="px-4 py-4 space-y-2">
+          {selectedGroupMembers.map((m) => (
+            <div
+              key={m.user_id}
+              className="flex items-center space-x-3 p-2.5 bg-background rounded-xl"
+            >
+              <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
+                <Image
+                  src={m.avatar_url}
+                  alt="Avatar"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
               </div>
-              <button
-                onClick={() => setShowMembersSheet(false)}
-                aria-label="Sluiten"
-                className="w-9 h-9 flex items-center justify-center bg-neutral-100 text-neutral-800 rounded-full shrink-0"
-              >
-                <X size={18} strokeWidth={2.5} />
-              </button>
+              <p className="text-sm font-bold text-foreground">
+                {m.full_name}
+                {m.user_id === userId && (
+                  <span className="ml-1 text-[9px] font-extrabold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">
+                    Jij
+                  </span>
+                )}
+              </p>
             </div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-              {selectedGroupMembers.map((m) => (
-                <div
-                  key={m.user_id}
-                  className="flex items-center space-x-3 p-2.5 bg-background rounded-xl"
-                >
-                  <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
-                    <Image
-                      src={m.avatar_url}
-                      alt="Avatar"
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                  <p className="text-sm font-bold text-foreground">
-                    {m.full_name}
-                    {m.user_id === userId && (
-                      <span className="ml-1 text-[9px] font-extrabold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">
-                        Jij
-                      </span>
-                    )}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
-      )}
+      </DragSheet>
 
       {/* SHEET D: EDIT GROUP NAME */}
       {showEditSheet && (

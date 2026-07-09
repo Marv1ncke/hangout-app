@@ -18,7 +18,11 @@ import {
   List,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
+import { DragSheet } from "@/components/ui/drag-sheet";
 import { cn } from "@/lib/utils";
+
+const BOTTOM_NAV_HEIGHT = 58;
+const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
 
 type ViewType = "list" | "month";
 type RsvpStatus = "going" | "not_going";
@@ -335,27 +339,26 @@ export default function EventsPage() {
       )}
 
       {/* CREATE SHEET */}
-      {showCreateSheet && (
-        <CreateEventSheet
-          title={title} setTitle={setTitle}
-          description={description} setDescription={setDescription}
-          startDate={startDate} setStartDate={setStartDate}
-          startTime={startTime} setStartTime={setStartTime}
-          hasEnd={hasEnd} setHasEnd={setHasEnd}
-          endDate={endDate} setEndDate={setEndDate}
-          endTime={endTime} setEndTime={setEndTime}
-          hasLocation={hasLocation} setHasLocation={setHasLocation}
-          locationName={locationName} setLocationName={setLocationName}
-          location={location} setLocation={setLocation}
-          hasDresscode={hasDresscode} setHasDresscode={setHasDresscode}
-          dresscode={dresscode} setDresscode={setDresscode}
-          hasBringList={hasBringList} setHasBringList={setHasBringList}
-          formError={formError}
-          submitting={submitting}
-          onSubmit={createEvent}
-          onClose={() => { setShowCreateSheet(false); resetForm(); }}
-        />
-      )}
+      <CreateEventSheet
+        open={showCreateSheet}
+        onClose={() => { setShowCreateSheet(false); resetForm(); }}
+        title={title} setTitle={setTitle}
+        description={description} setDescription={setDescription}
+        startDate={startDate} setStartDate={setStartDate}
+        startTime={startTime} setStartTime={setStartTime}
+        hasEnd={hasEnd} setHasEnd={setHasEnd}
+        endDate={endDate} setEndDate={setEndDate}
+        endTime={endTime} setEndTime={setEndTime}
+        hasLocation={hasLocation} setHasLocation={setHasLocation}
+        locationName={locationName} setLocationName={setLocationName}
+        location={location} setLocation={setLocation}
+        hasDresscode={hasDresscode} setHasDresscode={setHasDresscode}
+        dresscode={dresscode} setDresscode={setDresscode}
+        hasBringList={hasBringList} setHasBringList={setHasBringList}
+        formError={formError}
+        submitting={submitting}
+        onSubmit={createEvent}
+      />
     </div>
   );
 }
@@ -669,52 +672,53 @@ function EventCard({
 // ============================================================
 function CreateEventSheet(props: any) {
   const {
+    open, onClose,
     title, setTitle, description, setDescription,
     startDate, setStartDate, startTime, setStartTime,
     hasEnd, setHasEnd, endDate, setEndDate, endTime, setEndTime,
     hasLocation, setHasLocation, locationName, setLocationName, location, setLocation,
     hasDresscode, setHasDresscode, dresscode, setDresscode,
     hasBringList, setHasBringList,
-    formError, submitting, onSubmit, onClose,
+    formError, submitting, onSubmit,
   } = props;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex items-end justify-center animate-in fade-in-0 duration-150">
-      <form
-        onSubmit={onSubmit}
-        className="bg-background w-full max-w-md max-h-[88dvh] overflow-y-auto p-4 rounded-t-3xl space-y-3 animate-in slide-in-from-bottom-4 duration-200"
-      >
-        <div className="w-9 h-1 bg-border rounded-full mx-auto mb-1" />
-        <h2 className="font-black text-base">Nieuwe activiteit</h2>
-
+    <DragSheet
+      open={open}
+      onClose={onClose}
+      title="Nieuwe activiteit"
+      bottomOffset={SHEET_BOTTOM_OFFSET}
+      className="max-h-[85dvh]"
+    >
+      <form onSubmit={onSubmit} className="p-4 space-y-3">
         <input
           placeholder="Titel"
           value={title}
           onChange={(e: any) => setTitle(e.target.value)}
-          className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none"
+          className="w-full bg-background p-3 text-sm rounded-xl outline-none"
         />
         <textarea
           placeholder="Beschrijving (optioneel)"
           value={description}
           onChange={(e: any) => setDescription(e.target.value)}
-          className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none resize-none"
+          className="w-full bg-background p-3 text-sm rounded-xl outline-none resize-none"
           rows={2}
         />
 
         <div className="grid grid-cols-2 gap-2">
           <input type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)}
-            className="bg-container-bg p-3 text-sm rounded-xl outline-none" />
+            className="bg-background p-3 text-sm rounded-xl outline-none" />
           <input type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)}
-            className="bg-container-bg p-3 text-sm rounded-xl outline-none" />
+            className="bg-background p-3 text-sm rounded-xl outline-none" />
         </div>
 
         <ToggleRow label="Eindmoment toevoegen" checked={hasEnd} onChange={setHasEnd} />
         {hasEnd && (
           <div className="grid grid-cols-2 gap-2">
             <input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)}
-              className="bg-container-bg p-3 text-sm rounded-xl outline-none" />
+              className="bg-background p-3 text-sm rounded-xl outline-none" />
             <input type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)}
-              className="bg-container-bg p-3 text-sm rounded-xl outline-none" />
+              className="bg-background p-3 text-sm rounded-xl outline-none" />
           </div>
         )}
 
@@ -723,10 +727,10 @@ function CreateEventSheet(props: any) {
           <div className="space-y-2">
             <input placeholder="Naam locatie (bv. Bij Sam)" value={locationName}
               onChange={(e: any) => setLocationName(e.target.value)}
-              className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none" />
+              className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
             <input placeholder="Adres" value={location}
               onChange={(e: any) => setLocation(e.target.value)}
-              className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none" />
+              className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
           </div>
         )}
 
@@ -734,7 +738,7 @@ function CreateEventSheet(props: any) {
         {hasDresscode && (
           <input placeholder="Dresscode" value={dresscode}
             onChange={(e: any) => setDresscode(e.target.value)}
-            className="w-full bg-container-bg p-3 text-sm rounded-xl outline-none" />
+            className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
         )}
 
         <ToggleRow label="Breng-lijst inschakelen" checked={hasBringList} onChange={setHasBringList} />
@@ -747,11 +751,8 @@ function CreateEventSheet(props: any) {
         >
           {submitting ? "Aanmaken..." : "Aanmaken"}
         </button>
-        <button type="button" onClick={onClose} className="w-full text-xs text-muted-foreground py-1">
-          Annuleren
-        </button>
       </form>
-    </div>
+    </DragSheet>
   );
 }
 
