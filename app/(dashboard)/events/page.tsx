@@ -235,10 +235,15 @@ export default function EventsPage() {
       return;
     }
 
-    setSubmitting(true);
-
     const startIso = new Date(`${startDate}T${startTime}`).toISOString();
     const endIso = hasEnd ? new Date(`${endDate}T${endTime}`).toISOString() : null;
+
+    if (endIso && new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+      setFormError("De stoptijd moet na de starttijd liggen. Een activiteit kan geen 0 of negatieve duur hebben.");
+      return;
+    }
+
+    setSubmitting(true);
 
     const { error } = await supabase.rpc("create_event_atomic", {
       p_group_id: activeGroupId,

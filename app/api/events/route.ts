@@ -32,11 +32,33 @@ export async function GET(request: Request) {
     if (m.profiles) profilesMap[m.profiles.id] = m.profiles;
   });
 
-  const { data: events } = await supabase
+  const { data: events, error: eventsError } = await supabase
     .from("events")
     .select("*, event_rsvps(user_id, status)")
     .eq("group_id", groupId)
     .order("start_time", { ascending: true });
+
+  if (eventsError) {
+    console.error("events fetch met rsvp-join faalde:", eventsError.message);
+    // fallback: events zonder de rsvp-join, zodat de agenda sowieso
+    // gevuld raakt zelfs als de join (bv. door RLS/relatie-issue) faalt
+    const { data: eventsOnly, error: fallbackError } = await supabase
+      .from("events")
+      .select("*")
+      .eq("group_id", groupId)
+      .order("start_time", { ascending: true });
+
+    if (fallbackError) {
+      console.error("events fallback-fetch faalde ook:", fallbackError.message);
+      return NextResponse.json(
+        { events: [], groupProfiles: profilesMap, error: fallbackError.message },
+        { status: 500 }
+      );
+    }
+
+    const withEmptyRsvps = (eventsOnly ?? []).map((e) => ({ ...e, event_rsvps: [] }));
+    return NextResponse.json({ events: withEmptyRsvps, groupProfiles: profilesMap });
+  }
 
   return NextResponse.json({ events: events ?? [], groupProfiles: profilesMap });
 }
