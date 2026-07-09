@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * zodat alle pop-ups exact hetzelfde aanvoelen.
  */
 
-const CLOSE_DURATION = 280; // ms, moet matchen met de transition hieronder
+const CLOSE_DURATION = 480; // ms, moet matchen met de transition hieronder
 const DISMISS_THRESHOLD = 0.35; // sleep verder dan 35% van sheet-hoogte = sluiten
 
 interface DragSheetProps {
@@ -48,6 +48,7 @@ export function DragSheet({
   const [dragOffset, setDragOffset] = useState(0); // px, 0 = volledig open
   const [isDragging, setIsDragging] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
   const dragStartY = useRef<number | null>(null);
   const sheetHeight = useRef(1);
 
@@ -57,6 +58,12 @@ export function DragSheet({
       setMounted(true);
       setIsClosing(false);
       setDragOffset(0);
+      setIsOpening(true);
+      // volgende frame: schakel isOpening uit zodat de transition van
+      // "volledig onderaan" naar "volledig open" daadwerkelijk speelt
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsOpening(false));
+      });
       const scrollY = window.scrollY;
       document.body.style.position = "fixed";
       document.body.style.top = `-${scrollY}px`;
@@ -112,13 +119,13 @@ export function DragSheet({
 
   if (!mounted) return null;
 
-  // voortgang 0 (volledig open) -> 1 (volledig weg), zowel voor drag als voor
-  // de programmatische close (kruisje) animatie
-  const progress = isClosing
+  // voortgang 0 (volledig open) -> 1 (volledig weg), voor drag, sluiten
+  // via kruisje, én de initiele open-animatie (van onder naar boven)
+  const progress = isClosing || isOpening
     ? 1
     : Math.min(1, dragOffset / sheetHeight.current);
 
-  const translateY = isClosing
+  const translateY = isClosing || isOpening
     ? "100%"
     : `${dragOffset}px`;
 
@@ -126,7 +133,7 @@ export function DragSheet({
   const blurPx = 24 * (1 - progress);
 
   return (
-    <div className="fixed inset-0" style={{ zIndex: 999999 }}>
+    <div className="fixed inset-0" style={{ zIndex: 90000 }}>
       {/* backdrop: opacity + blur gekoppeld aan dezelfde voortgang als de sheet */}
       <button
         aria-label="Sluiten"
@@ -136,7 +143,7 @@ export function DragSheet({
           opacity: backdropOpacity,
           backdropFilter: `blur(${blurPx}px)`,
           WebkitBackdropFilter: `blur(${blurPx}px)`,
-          transition: isDragging ? "none" : `opacity ${CLOSE_DURATION}ms cubic-bezier(0.22,1,0.36,1), backdrop-filter ${CLOSE_DURATION}ms cubic-bezier(0.22,1,0.36,1)`,
+          transition: isDragging ? "none" : `opacity ${CLOSE_DURATION}ms cubic-bezier(0.32,0.72,0,1), backdrop-filter ${CLOSE_DURATION}ms cubic-bezier(0.32,0.72,0,1)`,
         }}
       />
 
@@ -152,7 +159,7 @@ export function DragSheet({
           transform: `translateY(${translateY})`,
           transition: isDragging
             ? "none"
-            : `transform ${CLOSE_DURATION}ms cubic-bezier(0.22,1,0.36,1)`,
+            : `transform ${CLOSE_DURATION}ms cubic-bezier(0.32,0.72,0,1)`,
         }}
       >
         {/* sleep-handvat + header, dit stuk vangt de drag-gesture op */}

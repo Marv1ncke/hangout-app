@@ -677,136 +677,88 @@ export default function GroupsPage() {
       </div>
 
       {/* SHEET A: CREATE GROUP */}
-      {showCreateSheet && (
-        <div className="fixed inset-0 z-[9000]">
-          {/* backdrop */}
-          <button
-            aria-label="Sluit sheet"
-            onClick={() => setShowCreateSheet(false)}
-            className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
+      <DragSheet
+        open={showCreateSheet}
+        onClose={() => setShowCreateSheet(false)}
+        title="Groep aanmaken"
+        bottomOffset={SHEET_BOTTOM_OFFSET}
+      >
+        <form onSubmit={handleCreateGroup} className="p-4 space-y-4">
+          <input
+            type="text"
+            placeholder="Groepsnaam"
+            required
+            value={groupName}
+            onChange={(e) => setGroupName(e.target.value)}
+            className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
           />
 
-          {/* sheet */}
-          <div
-            className="absolute left-0 right-0 bottom-0 animate-sheet-in"
-            style={{
-              paddingBottom: SHEET_BOTTOM_OFFSET,
-            }}
-          >
-            <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-sm font-black text-foreground">Groep aanmaken</h2>
-                <button
-                  onClick={() => setShowCreateSheet(false)}
-                  className="text-xs font-bold text-neutral-400 cursor-pointer"
-                >
-                  Annuleer
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateGroup} className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Groepsnaam"
-                  required
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
-                />
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">
-                    Groepstype
-                  </label>
-                  <div className="bg-neutral-100 p-1 rounded-xl flex">
-                    <button
-                      type="button"
-                      onClick={() => setIsProtected(false)}
-                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        !isProtected
-                          ? "bg-container-bg text-foreground shadow-3xs"
-                          : "text-neutral-500"
-                      }`}
-                    >
-                      🔓 Open
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsProtected(true)}
-                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
-                        isProtected
-                          ? "bg-container-bg text-foreground shadow-3xs"
-                          : "text-neutral-500"
-                      }`}
-                    >
-                      🔒 Gesloten
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={!userId}
-                  className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
-                >
-                  Maak groep
-                </button>
-              </form>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">
+              Groepstype
+            </label>
+            <div className="bg-neutral-100 p-1 rounded-xl flex">
+              <button
+                type="button"
+                onClick={() => setIsProtected(false)}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  !isProtected
+                    ? "bg-container-bg text-foreground shadow-3xs"
+                    : "text-neutral-500"
+                }`}
+              >
+                🔓 Open
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsProtected(true)}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  isProtected
+                    ? "bg-container-bg text-foreground shadow-3xs"
+                    : "text-neutral-500"
+                }`}
+              >
+                🔒 Gesloten
+              </button>
             </div>
           </div>
-        </div>
-      )}
+
+          <button
+            type="submit"
+            disabled={!userId}
+            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
+          >
+            Maak groep
+          </button>
+        </form>
+      </DragSheet>
 
       {/* SHEET B: JOIN BY CODE */}
-      {showJoinSheet && (
-        <div className="fixed inset-0 z-[9000]">
-          {/* backdrop */}
-          <button
-            aria-label="Sluit sheet"
-            onClick={() => setShowJoinSheet(false)}
-            className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
+      <DragSheet
+        open={showJoinSheet}
+        onClose={() => setShowJoinSheet(false)}
+        title="Deelnemen via code"
+        bottomOffset={SHEET_BOTTOM_OFFSET}
+      >
+        <form onSubmit={handleJoinCodeSubmit} className="p-4 space-y-4">
+          <input
+            type="text"
+            placeholder="CODE12"
+            required
+            maxLength={6}
+            value={joinCodeInput}
+            onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+            className="w-full bg-background border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-foreground"
           />
-
-          {/* sheet */}
-          <div
-            className="absolute left-0 right-0 bottom-0 animate-sheet-in"
-            style={{
-              paddingBottom: SHEET_BOTTOM_OFFSET,
-            }}
+          <button
+            type="submit"
+            disabled={!userId}
+            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
           >
-            <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-sm font-black text-foreground">Deelnemen via code</h2>
-                <button
-                  onClick={() => setShowJoinSheet(false)}
-                  className="text-xs font-bold text-neutral-400 cursor-pointer"
-                >
-                  Annuleer
-                </button>
-              </div>
-
-              <form onSubmit={handleJoinCodeSubmit} className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="CODE12"
-                  required
-                  maxLength={6}
-                  value={joinCodeInput}
-                  onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                  className="w-full bg-background border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-foreground"
-                />
-                <button
-                  type="submit"
-                  disabled={!userId}
-                  className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
-                >
-                  Deelnemen
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+            Deelnemen
+          </button>
+        </form>
+      </DragSheet>
 
       {/* SHEET C: MEMBERS LIST */}
       <DragSheet
@@ -846,54 +798,28 @@ export default function GroupsPage() {
       </DragSheet>
 
       {/* SHEET D: EDIT GROUP NAME */}
-      {showEditSheet && (
-        <div className="fixed inset-0 z-[9000]">
-          {/* backdrop */}
-          <button
-            aria-label="Sluit sheet"
-            onClick={() => setShowEditSheet(false)}
-            className="absolute inset-0 bg-neutral-900/20 backdrop-blur-xl"
+      <DragSheet
+        open={showEditSheet}
+        onClose={() => setShowEditSheet(false)}
+        title="Groepsnaam wijzigen"
+        bottomOffset={SHEET_BOTTOM_OFFSET}
+      >
+        <form onSubmit={handleEditGroupName} className="p-4 space-y-4">
+          <input
+            type="text"
+            value={editGroupNameInput}
+            onChange={(e) => setEditGroupNameInput(e.target.value)}
+            required
+            className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
           />
-
-          {/* sheet */}
-          <div
-            className="absolute left-0 right-0 bottom-0 animate-sheet-in"
-            style={{
-              paddingBottom: SHEET_BOTTOM_OFFSET,
-            }}
+          <button
+            type="submit"
+            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition"
           >
-            <div className="bg-container-bg/95 border-t border-border rounded-t-3xl shadow-2xl px-6 pt-5 pb-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-sm font-black text-foreground">
-                  Groepsnaam wijzigen
-                </h2>
-                <button
-                  onClick={() => setShowEditSheet(false)}
-                  className="text-xs font-bold text-neutral-400 cursor-pointer"
-                >
-                  Annuleer
-                </button>
-              </div>
-
-              <form onSubmit={handleEditGroupName} className="space-y-4">
-                <input
-                  type="text"
-                  value={editGroupNameInput}
-                  onChange={(e) => setEditGroupNameInput(e.target.value)}
-                  required
-                  className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition"
-                >
-                  Opslaan
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+            Opslaan
+          </button>
+        </form>
+      </DragSheet>
 
       {/* SHEET E: LEAVE CONFIRM */}
       {showLeaveConfirmSheet && (

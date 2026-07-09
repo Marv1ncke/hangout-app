@@ -206,13 +206,13 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
               }}
               className="flex flex-col items-center justify-center min-w-[60px]"
             >
-              <div className={`relative ${isActive ? "text-white" : "text-neutral-400"}`}>
+              <div className={`relative ${isActive ? "text-foreground" : "text-neutral-400"}`}>
                 {item.icon}
                 {item.badge && (
                   <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-background" />
                 )}
               </div>
-              <span className={`text-[10px] font-bold mt-1 ${isActive ? "text-white" : "text-neutral-400"}`}>
+              <span className={`text-[10px] font-bold mt-1 ${isActive ? "text-foreground" : "text-neutral-400"}`}>
                 {item.label}
               </span>
             </Link>
@@ -233,17 +233,17 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
               src={profile.avatar_url} 
               alt="Profile"
               className={`w-5 h-5 rounded-full object-cover border ${
-                isProfileActive ? "border-white" : "border-neutral-500"
+                isProfileActive ? "border-foreground" : "border-neutral-500"
               }`} 
             />
           ) : (
             <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black ${
-              isProfileActive ? "bg-white text-black" : "bg-neutral-700 text-white"
+              isProfileActive ? "bg-foreground text-background" : "bg-neutral-700 text-white"
             }`}>
               {initials}
             </div>
           )}
-          <span className={`text-[10px] font-bold mt-1 ${isProfileActive ? "text-white" : "text-neutral-400"}`}>
+          <span className={`text-[10px] font-bold mt-1 ${isProfileActive ? "text-foreground" : "text-neutral-400"}`}>
             Profiel
           </span>
         </Link>
