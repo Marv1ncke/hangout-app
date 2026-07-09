@@ -1,25 +1,36 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
+
+// Deze app bewaart de Supabase-sessie in localStorage (zie lib/supabase/client.ts),
+// niet in cookies. Server routes moeten daarom het access-token expliciet uit de
+// Authorization-header lezen (meegestuurd door de globale SWR-fetcher in
+// AppProviders.tsx) in plaats van via cookies te werken -- anders draait de query
+// altijd als de anonieme rol, die geen rechten heeft, met "permission denied" tot gevolg.
+function getSupabaseForRequest(request: Request) {
+  const authHeader = request.headers.get("authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const groupId = searchParams.get("groupId");
   if (!groupId) return NextResponse.json([], { status: 400 });
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        },
-      },
-    }
-  );
+  const supabase = getSupabaseForRequest(request);
 
   const { data: members } = await supabase
     .from("group_members")
@@ -40,8 +51,6 @@ export async function GET(request: Request) {
 
   if (eventsError) {
     console.error("events fetch met rsvp-join faalde:", eventsError.message);
-    // fallback: events zonder de rsvp-join, zodat de agenda sowieso
-    // gevuld raakt zelfs als de join (bv. door RLS/relatie-issue) faalt
     const { data: eventsOnly, error: fallbackError } = await supabase
       .from("events")
       .select("*")
