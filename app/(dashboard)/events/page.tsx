@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Check,
   X,
+  Trash2,
   Calendar as CalendarIcon,
   List,
 } from "lucide-react";
@@ -222,6 +223,27 @@ export default function EventsPage() {
     }
   }
 
+  async function handleDeleteEvent(ev: EventRow) {
+    if (ev.created_by !== uid) return; // extra guard, RLS dekt dit al af
+    const confirmed = window.confirm(`"${ev.title}" verwijderen? Dit kan niet ongedaan gemaakt worden.`);
+    if (!confirmed) return;
+
+    const previous = events;
+    mutate(
+      (old: any) => old ? { ...old, events: old.events.filter((e: EventRow) => e.id !== ev.id) } : old,
+      false
+    );
+
+    const { error } = await supabase.from("events").delete().eq("id", ev.id);
+    if (error) {
+      mutate(previous, false);
+      window.alert("Verwijderen mislukt: " + error.message);
+      return;
+    }
+    setExpandedId((cur) => (cur === ev.id ? null : cur));
+    mutate();
+  }
+
   async function createEvent(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
@@ -329,6 +351,7 @@ export default function EventsPage() {
           setExpandedId={setExpandedId}
           onRsvp={handleRsvp}
           rsvpBusyId={rsvpBusyId}
+          onDelete={handleDeleteEvent}
         />
       )}
 
@@ -340,6 +363,7 @@ export default function EventsPage() {
           setExpandedId={setExpandedId}
           onRsvp={handleRsvp}
           rsvpBusyId={rsvpBusyId}
+          onDelete={handleDeleteEvent}
         />
       )}
 
@@ -455,7 +479,7 @@ function MonthView({
 // Dag-detail onder de maandkalender
 // ============================================================
 function DayAgenda({
-  day, events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId,
+  day, events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete,
 }: {
   day: Date;
   events: EventRow[];
@@ -464,6 +488,7 @@ function DayAgenda({
   setExpandedId: (id: string | null) => void;
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   rsvpBusyId: string | null;
+  onDelete: (ev: EventRow) => void;
 }) {
   return (
     <div className="space-y-2 pt-1 animate-in fade-in-0 slide-in-from-top-1 duration-150">
@@ -482,6 +507,7 @@ function DayAgenda({
             onToggle={() => setExpandedId(expandedId === ev.id ? null : ev.id)}
             onRsvp={onRsvp}
             busy={rsvpBusyId === ev.id}
+            onDelete={onDelete}
           />
         ))
       )}
@@ -493,7 +519,7 @@ function DayAgenda({
 // Lijstweergave
 // ============================================================
 function ListView({
-  events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId,
+  events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete,
 }: {
   events: EventRow[];
   uid: string;
@@ -501,6 +527,7 @@ function ListView({
   setExpandedId: (id: string | null) => void;
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   rsvpBusyId: string | null;
+  onDelete: (ev: EventRow) => void;
 }) {
   if (events.length === 0) {
     return (
@@ -535,6 +562,7 @@ function ListView({
                 onToggle={() => setExpandedId(expandedId === ev.id ? null : ev.id)}
                 onRsvp={onRsvp}
                 busy={rsvpBusyId === ev.id}
+                onDelete={onDelete}
               />
             ))}
           </div>
@@ -548,7 +576,7 @@ function ListView({
 // Event kaart (samengevouwen + expand)
 // ============================================================
 function EventCard({
-  ev, uid, expanded, onToggle, onRsvp, busy,
+  ev, uid, expanded, onToggle, onRsvp, busy, onDelete,
 }: {
   ev: EventRow;
   uid: string;
@@ -556,6 +584,7 @@ function EventCard({
   onToggle: () => void;
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   busy: boolean;
+  onDelete: (ev: EventRow) => void;
 }) {
   const myRsvp = ev.event_rsvps.find((r) => r.user_id === uid)?.status ?? null;
   const going = ev.event_rsvps.filter((r) => r.status === "going");
@@ -665,6 +694,16 @@ function EventCard({
                 </p>
               )}
             </div>
+          )}
+
+          {/* Verwijderen: enkel zichtbaar voor de gebruiker die de activiteit aanmaakte */}
+          {ev.created_by === uid && (
+            <button
+              onClick={() => onDelete(ev)}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-destructive bg-destructive/10 active:scale-95 transition-all mt-1"
+            >
+              <Trash2 size={13} /> Activiteit verwijderen
+            </button>
           )}
         </div>
       )}
