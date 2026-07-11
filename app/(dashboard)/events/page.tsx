@@ -268,7 +268,10 @@ export default function EventsPage() {
         .insert({ event_id: ev.id, user_id: uid, status });
       if (insError) throw insError;
 
-      await mutate();
+      // Revalideer op de achtergrond maar NOOIT de optimistic UI leegmaken:
+      // populateCache blijft standaard, en fetch-fouten gooien we hier weg
+      // zodat een tijdelijke server-hik de al-correcte lijst niet wist.
+      mutate().catch(() => {});
     } catch {
       mutate(previous, false);
     } finally {

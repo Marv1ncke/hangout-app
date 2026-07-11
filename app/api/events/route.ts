@@ -50,28 +50,35 @@ export async function GET(request: Request) {
     .order("start_time", { ascending: true });
 
   if (eventsError) {
-    console.error("events fetch met rsvp-join faalde:", eventsError.message);
+    console.error("events fetch met rsvp-join faalde:", JSON.stringify(eventsError));
     const { data: eventsOnly, error: fallbackError } = await supabase
       .from("events")
       .select("*")
       .eq("group_id", groupId)
       .order("start_time", { ascending: true });
 
-    // Bij een fout NOOIT 200 met een lege array teruggeven: dat laat SWR
-    // een geldige cache overschrijven met "geen activiteiten" totdat de
-    // gebruiker wegnavigeert en terugkomt. Geef altijd een error-status
-    // terug zodat de client de vorige (goede) data behoudt.
     if (fallbackError) {
-      console.error("events fallback-fetch faalde ook:", fallbackError.message);
+      console.error("events fallback-fetch faalde ook:", JSON.stringify(fallbackError));
       return NextResponse.json(
         { events: [], groupProfiles: profilesMap, error: fallbackError.message },
         { status: 500 }
       );
     }
 
-    const withEmptyRsvps = (eventsOnly ?? []).map((e) => ({ ...e, event_rsvps: [] }));
+    // Fallback events hebben geen rsvps kunnen ophalen (join faalde) -> haal
+    // ze apart op zodat RSVP-data nooit stil verdwijnt uit de UI.
+    const eventIds = (eventsOnly ?? []).map((e) => e.id);
+    const { data: rsvpRows } = eventIds.length
+      ? await supabase.from("event_rsvps").select("event_id, user_id, status").in("event_id", eventIds)
+      : { data: [] as any[] };
+
+    const withRsvps = (eventsOnly ?? []).map((e) => ({
+      ...e,
+      event_rsvps: (rsvpRows ?? []).filter((r: any) => r.event_id === e.id).map((r: any) => ({ user_id: r.user_id, status: r.status })),
+    }));
+
     return NextResponse.json(
-      { events: withEmptyRsvps, groupProfiles: profilesMap, error: eventsError.message },
+      { events: withRsvps, groupProfiles: profilesMap, error: eventsError.message },
       { status: 200 }
     );
   }
