@@ -88,7 +88,7 @@ export default function GroupsPage() {
     }
   }, [cachedGroupMembers]);
 
-  const BOTTOM_NAV_HEIGHT = 58;
+  const BOTTOM_NAV_HEIGHT = 49; // moet matchen met NavigationLayout.tsx nav-hoogte
   const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
 
   function showNotification(message: string, sub?: string) {

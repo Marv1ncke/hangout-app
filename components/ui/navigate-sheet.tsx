@@ -3,7 +3,7 @@
 import React from "react";
 import { DragSheet } from "@/components/ui/drag-sheet";
 
-const BOTTOM_NAV_HEIGHT = 58;
+const BOTTOM_NAV_HEIGHT = 49; // moet matchen met NavigationLayout.tsx nav-hoogte
 const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
 
 interface Props {
