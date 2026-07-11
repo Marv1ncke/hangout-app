@@ -6,8 +6,9 @@ import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Link } from "next-view-transitions";
-import { Calendar, Users, CreditCard, Bell, ChevronDown } from "lucide-react";
+import { Calendar, Users, CreditCard, Bell, ChevronDown, Check } from "lucide-react";
 import { useNavData } from "@/hooks/useNavData";
+import { useSWRConfig } from "swr";
 
 interface NavigationLayoutProps {
   children: React.ReactNode;
@@ -22,6 +23,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   // wisselen) werkt deze navigatiebalk automatisch bij — geen los "groupChanged"
   // event meer nodig als los sync-mechanisme.
   const { data: navData, mutate: mutateNav } = useNavData();
+  const { mutate: globalMutate } = useSWRConfig();
   const [pendingCount, setPendingCount] = useState(0);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
@@ -98,6 +100,16 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
     if (error) {
       await mutateNav();
     }
+
+    // Elke pagina die op groupId filtert (events, expenses, ...) gebruikt
+    // een eigen SWR-key zoals "/api/events?groupId=<oude-groep>". Die
+    // revalideert niet automatisch mee met navData, dus zonder dit bleef
+    // de oude groep zichtbaar totdat je handmatig wegnavigeerde en terugkwam.
+    globalMutate(
+      (key) => typeof key === "string" && key.includes("groupId="),
+      undefined,
+      { revalidate: true }
+    );
   }
 
   // App-opstart overlay: voorkomt de korte flits van de dashboard-UI vóórdat
@@ -149,10 +161,13 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
           onClick={() => setShowGroupSelector(!showGroupSelector)}
           className="flex items-center space-x-1.5 active:scale-95 transition mt-2"
         >
-          <span className="text-base font-black tracking-tight text-neutral-950">
+          <span className="text-base font-black tracking-tight text-foreground">
             {activeGroup ? activeGroup.name : "Hangout"}
           </span>
-          <ChevronDown size={14} />
+          <ChevronDown
+            size={14}
+            className={`text-foreground transition-transform duration-200 ${showGroupSelector ? "rotate-180" : ""}`}
+          />
         </button>
       </header>
 
@@ -163,16 +178,25 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
             className="absolute inset-0 bg-black/10 backdrop-blur-xs"
             onClick={() => setShowGroupSelector(false)}
           />
-          <div className="absolute inset-x-0 top-[70px] bg-container-bg border-b border-border p-3 space-y-1">
-            {userGroups.map(g => (
-              <button
-                key={g.id}
-                onClick={() => handleGroupSwitch(g.id)}
-                className="w-full text-left px-4 py-3 rounded-xl text-xs font-bold"
-              >
-                {g.name}
-              </button>
-            ))}
+          <div className="absolute inset-x-0 top-[70px] bg-container-bg border-b border-border p-3 space-y-1 max-h-[60vh] overflow-y-auto">
+            {userGroups.length === 0 && (
+              <p className="px-4 py-3 text-xs font-bold text-muted-foreground">Je bent nog in geen enkele groep.</p>
+            )}
+            {userGroups.map((g: any) => {
+              const isActive = g.id === activeGroup?.id;
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => { if (!isActive) handleGroupSwitch(g.id); else setShowGroupSelector(false); }}
+                  className={`w-full flex items-center justify-between text-left px-4 py-3 rounded-xl text-xs font-bold transition-colors ${
+                    isActive ? "bg-btn-bg text-btn-text" : "text-foreground active:bg-background"
+                  }`}
+                >
+                  <span className="truncate">{g.name}</span>
+                  {isActive && <Check size={14} strokeWidth={3} className="shrink-0 ml-2" />}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

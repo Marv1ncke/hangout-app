@@ -38,16 +38,28 @@ export function AddressAutocomplete({ value, onChange, onSelect, placeholder }: 
       setLoading(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=0&limit=5&q=${encodeURIComponent(value)}`,
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(value)}`,
           { headers: { Accept: "application/json" } }
         );
         const data = await res.json();
         setResults(
-          (data ?? []).map((d: any) => ({
-            label: d.display_name as string,
-            lat: parseFloat(d.lat),
-            lng: parseFloat(d.lon),
-          }))
+          (data ?? []).map((d: any) => {
+            const a = d.address ?? {};
+            const street = a.road ?? a.pedestrian ?? a.footway ?? "";
+            const houseNumber = a.house_number ?? "";
+            const postcode = a.postcode ?? "";
+            const city = a.city ?? a.town ?? a.village ?? a.municipality ?? "";
+            // Ons formaat: "straat nummer postcode stad" (spaties, geen land)
+            const simple = [`${street} ${houseNumber}`.trim(), postcode, city]
+              .filter(Boolean)
+              .join(" ")
+              .trim();
+            return {
+              label: simple || (d.display_name as string),
+              lat: parseFloat(d.lat),
+              lng: parseFloat(d.lon),
+            };
+          })
         );
         setOpen(true);
       } catch {

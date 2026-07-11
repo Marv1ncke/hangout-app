@@ -205,7 +205,7 @@ export function DragSheet({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain pb-6">{children}</div>
       </div>
     </div>
   );

@@ -1,7 +1,10 @@
 "use client";
 
 import React from "react";
-import { X } from "lucide-react";
+import { DragSheet } from "@/components/ui/drag-sheet";
+
+const BOTTOM_NAV_HEIGHT = 58;
+const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
 
 interface Props {
   open: boolean;
@@ -12,8 +15,6 @@ interface Props {
 }
 
 export function NavigateSheet({ open, onClose, lat, lng, address }: Props) {
-  if (!open) return null;
-
   const hasCoords = lat != null && lng != null;
 
   function openGoogleMaps() {
@@ -33,18 +34,8 @@ export function NavigateSheet({ open, onClose, lat, lng, address }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center bg-black/30" onClick={onClose}>
-      <div
-        className="bg-container-bg w-full sm:max-w-xs rounded-t-3xl sm:rounded-2xl p-4 space-y-2 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-1 pb-1">
-          <span className="text-xs font-bold text-muted-foreground">Navigeren met</span>
-          <button onClick={onClose} className="size-7 flex items-center justify-center rounded-full bg-background">
-            <X size={14} />
-          </button>
-        </div>
-
+    <DragSheet open={open} onClose={onClose} title="Navigeren met" bottomOffset={SHEET_BOTTOM_OFFSET}>
+      <div className="p-4 space-y-2">
         <button
           onClick={openGoogleMaps}
           className="w-full flex items-center gap-3 p-3 rounded-xl bg-background active:scale-[0.98] transition-transform"
@@ -61,6 +52,6 @@ export function NavigateSheet({ open, onClose, lat, lng, address }: Props) {
           <span className="text-sm font-bold text-foreground">Waze</span>
         </button>
       </div>
-    </div>
+    </DragSheet>
   );
 }

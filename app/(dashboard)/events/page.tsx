@@ -696,43 +696,88 @@ function EventCard({
             </div>
           )}
 
-          {/* RSVP knoppen */}
-          <div className="flex gap-2 pt-1">
-            <button
-              disabled={busy}
-              onClick={() => onRsvp(ev, "going")}
+          {/* RSVP knoppen: morphen naar 1 knop zodra gestemd */}
+          <div className="relative pt-1" style={{ minHeight: 36 }}>
+            <div
               className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95",
-                myRsvp === "going" ? "bg-btn-bg text-btn-text" : "bg-background text-foreground border border-border"
+                "flex gap-2 transition-all duration-300 ease-out",
+                myRsvp ? "opacity-0 scale-95 pointer-events-none absolute inset-0" : "opacity-100 scale-100"
               )}
             >
-              <Check size={13} /> Ik kom
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => onRsvp(ev, "not_going")}
+              <button
+                disabled={busy}
+                onClick={() => onRsvp(ev, "going")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 bg-background text-foreground border border-border"
+              >
+                <Check size={13} /> Ik kom
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => onRsvp(ev, "not_going")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 bg-background text-foreground border border-border"
+              >
+                <X size={13} /> Kan niet
+              </button>
+            </div>
+
+            <div
               className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95",
-                myRsvp === "not_going" ? "bg-foreground/10 text-foreground" : "bg-background text-foreground border border-border"
+                "transition-all duration-300 ease-out",
+                myRsvp ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none absolute inset-0"
               )}
             >
-              <X size={13} /> Kan niet
-            </button>
+              {myRsvp === "going" && (
+                <button
+                  disabled={busy}
+                  onClick={() => onRsvp(ev, "not_going")}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 bg-green-500/10 text-green-600 border border-green-500/30"
+                >
+                  <Check size={13} /> Toch niet
+                </button>
+              )}
+              {myRsvp === "not_going" && (
+                <button
+                  disabled={busy}
+                  onClick={() => onRsvp(ev, "going")}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 bg-red-500/10 text-red-600 border border-red-500/30"
+                >
+                  <X size={13} /> Toch komen
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Deelnemerslijst */}
+          {/* Deelnemerslijst: groen = komt, rood + greyed-out = komt niet */}
           {(going.length > 0 || notGoing.length > 0) && (
-            <div className="space-y-1.5 pt-1">
-              {going.length > 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  <span className="font-bold text-foreground">{going.length}</span> komen
-                </p>
-              )}
-              {notGoing.length > 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  <span className="font-bold text-foreground">{notGoing.length}</span> komen niet
-                </p>
-              )}
+            <div className="flex flex-wrap gap-3 pt-1">
+              {going.map((r) => {
+                const profile = groupProfiles[r.user_id];
+                return (
+                  <div key={r.user_id} className="flex flex-col items-center gap-1 w-12">
+                    <Avatar size="sm" className="ring-2 ring-green-500 ring-offset-2 ring-offset-container-bg">
+                      {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
+                      <AvatarFallback>{(profile?.full_name ?? "?").slice(0, 1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[9px] font-bold text-foreground truncate w-full text-center">
+                      {profile?.full_name?.split(" ")[0] ?? "?"}
+                    </span>
+                  </div>
+                );
+              })}
+              {notGoing.map((r) => {
+                const profile = groupProfiles[r.user_id];
+                return (
+                  <div key={r.user_id} className="flex flex-col items-center gap-1 w-12 opacity-40">
+                    <Avatar size="sm" className="ring-2 ring-red-500 ring-offset-2 ring-offset-container-bg grayscale">
+                      {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
+                      <AvatarFallback>{(profile?.full_name ?? "?").slice(0, 1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[9px] font-bold text-muted-foreground truncate w-full text-center">
+                      {profile?.full_name?.split(" ")[0] ?? "?"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
 
