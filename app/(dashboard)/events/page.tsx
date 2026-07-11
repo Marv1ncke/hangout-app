@@ -696,55 +696,32 @@ function EventCard({
             </div>
           )}
 
-          {/* RSVP knoppen: morphen naar 1 knop zodra gestemd */}
-          <div className="relative pt-1" style={{ minHeight: 36 }}>
-            <div
+          {/* RSVP knoppen: altijd beide zichtbaar, switchable, actieve staat gekleurd */}
+          <div className="flex gap-2 pt-1">
+            <button
+              disabled={busy}
+              onClick={() => myRsvp !== "going" && onRsvp(ev, "going")}
               className={cn(
-                "flex gap-2 transition-all duration-300 ease-out",
-                myRsvp ? "opacity-0 scale-95 pointer-events-none absolute inset-0" : "opacity-100 scale-100"
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
+                myRsvp === "going"
+                  ? "bg-green-500/10 text-green-600 border-green-500/30"
+                  : "bg-background text-foreground border-border"
               )}
             >
-              <button
-                disabled={busy}
-                onClick={() => onRsvp(ev, "going")}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 bg-background text-foreground border border-border"
-              >
-                <Check size={13} /> Ik kom
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => onRsvp(ev, "not_going")}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 bg-background text-foreground border border-border"
-              >
-                <X size={13} /> Kan niet
-              </button>
-            </div>
-
-            <div
+              <Check size={13} /> Ik kom
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => myRsvp !== "not_going" && onRsvp(ev, "not_going")}
               className={cn(
-                "transition-all duration-300 ease-out",
-                myRsvp ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none absolute inset-0"
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
+                myRsvp === "not_going"
+                  ? "bg-red-500/10 text-red-600 border-red-500/30"
+                  : "bg-background text-foreground border-border"
               )}
             >
-              {myRsvp === "going" && (
-                <button
-                  disabled={busy}
-                  onClick={() => onRsvp(ev, "not_going")}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 bg-green-500/10 text-green-600 border border-green-500/30"
-                >
-                  <Check size={13} /> Toch niet
-                </button>
-              )}
-              {myRsvp === "not_going" && (
-                <button
-                  disabled={busy}
-                  onClick={() => onRsvp(ev, "going")}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 bg-red-500/10 text-red-600 border border-red-500/30"
-                >
-                  <X size={13} /> Toch komen
-                </button>
-              )}
-            </div>
+              <X size={13} /> Kan niet
+            </button>
           </div>
 
           {/* Deelnemerslijst: groen = komt, rood + greyed-out = komt niet */}
