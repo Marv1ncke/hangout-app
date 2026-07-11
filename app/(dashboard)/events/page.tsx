@@ -18,7 +18,7 @@ import {
   Calendar as CalendarIcon,
   List,
 } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { DragSheet } from "@/components/ui/drag-sheet";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/address-autocomplete";
 import { NavigateSheet } from "@/components/ui/navigate-sheet";
@@ -741,7 +741,7 @@ function EventCard({
         </div>
 
         {(going.length > 0 || notGoing.length > 0) && (
-          <AvatarGroup className="shrink-0 mt-0.5">
+          <div className="shrink-0 mt-0.5 flex -space-x-2">
             {[...going, ...notGoing].slice(0, 3).map((r) => {
               const profile = groupProfiles[r.user_id];
               const isGoing = r.status === "going";
@@ -751,7 +751,7 @@ function EventCard({
                   size="sm"
                   title={profile?.full_name ?? undefined}
                   className={cn(
-                    "ring-2 ring-offset-2 ring-offset-container-bg",
+                    "ring-2 ring-offset-1 ring-offset-container-bg",
                     isGoing ? "ring-green-500" : "ring-red-500 grayscale opacity-60"
                   )}
                 >
@@ -762,7 +762,7 @@ function EventCard({
                 </Avatar>
               );
             })}
-          </AvatarGroup>
+          </div>
         )}
       </button>
 
