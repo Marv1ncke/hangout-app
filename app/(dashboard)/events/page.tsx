@@ -256,10 +256,18 @@ export default function EventsPage() {
     );
 
     try {
-      const { error } = await supabase
+      const { error: delError } = await supabase
         .from("event_rsvps")
-        .upsert({ event_id: ev.id, user_id: uid, status }, { onConflict: "event_id,user_id" });
-      if (error) throw error;
+        .delete()
+        .eq("event_id", ev.id)
+        .eq("user_id", uid);
+      if (delError) throw delError;
+
+      const { error: insError } = await supabase
+        .from("event_rsvps")
+        .insert({ event_id: ev.id, user_id: uid, status });
+      if (insError) throw insError;
+
       await mutate();
     } catch {
       mutate(previous, false);
