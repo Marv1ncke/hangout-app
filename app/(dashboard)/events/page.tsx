@@ -685,7 +685,7 @@ function EventCard({
             <button
               type="button"
               onClick={() => onNavigate(ev)}
-              className="flex items-center gap-1.5 text-xs text-primary font-medium active:opacity-60 transition-opacity"
+              className="flex items-center gap-1.5 text-xs text-primary font-medium underline decoration-primary/30 decoration-1 underline-offset-2 active:opacity-60 transition-opacity"
             >
               <MapPin size={12} /> {ev.location}
             </button>
@@ -696,33 +696,36 @@ function EventCard({
             </div>
           )}
 
-          {/* RSVP knoppen: altijd beide zichtbaar, switchable, actieve staat gekleurd */}
-          <div className="flex gap-2 pt-1">
-            <button
-              disabled={busy}
-              onClick={() => myRsvp !== "going" && onRsvp(ev, "going")}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
-                myRsvp === "going"
-                  ? "bg-green-500/10 text-green-600 border-green-500/30"
-                  : "bg-background text-foreground border-border"
-              )}
-            >
-              <Check size={13} /> Ik kom
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => myRsvp !== "not_going" && onRsvp(ev, "not_going")}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
-                myRsvp === "not_going"
-                  ? "bg-red-500/10 text-red-600 border-red-500/30"
-                  : "bg-background text-foreground border-border"
-              )}
-            >
-              <X size={13} /> Kan niet
-            </button>
-          </div>
+          {/* RSVP knoppen: niet voor de aanmaker (die komt sowieso), voor
+              anderen neutraal tot ze kiezen, daarna switchable */}
+          {ev.created_by !== uid && (
+            <div className="flex gap-2 pt-1">
+              <button
+                disabled={busy}
+                onClick={() => myRsvp !== "going" && onRsvp(ev, "going")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
+                  myRsvp === "going"
+                    ? "bg-green-500/10 text-green-600 border-green-500/30"
+                    : "bg-background text-foreground border-border"
+                )}
+              >
+                <Check size={13} /> Ik kom
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => myRsvp !== "not_going" && onRsvp(ev, "not_going")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
+                  myRsvp === "not_going"
+                    ? "bg-red-500/10 text-red-600 border-red-500/30"
+                    : "bg-background text-foreground border-border"
+                )}
+              >
+                <X size={13} /> Kan niet
+              </button>
+            </div>
+          )}
 
           {/* Deelnemerslijst: groen = komt, rood + greyed-out = komt niet */}
           {(going.length > 0 || notGoing.length > 0) && (
@@ -813,10 +816,16 @@ function CreateEventSheet(props: any) {
         <div>
           <p className="text-[10px] font-bold text-muted-foreground uppercase px-1 mb-1">Start</p>
           <div className="grid grid-cols-2 gap-2">
-            <input type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)}
-              className="bg-background p-3 text-sm rounded-xl outline-none" />
-            <input type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)}
-              className="bg-background p-3 text-sm rounded-xl outline-none" />
+            <div>
+              <p className="text-[9px] font-bold text-muted-foreground px-1 mb-0.5">Datum</p>
+              <input type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)}
+                className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
+            </div>
+            <div>
+              <p className="text-[9px] font-bold text-muted-foreground px-1 mb-0.5">Uur</p>
+              <input type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)}
+                className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
+            </div>
           </div>
         </div>
 
@@ -825,10 +834,16 @@ function CreateEventSheet(props: any) {
           <div>
             <p className="text-[10px] font-bold text-muted-foreground uppercase px-1 mb-1">Einde</p>
             <div className="grid grid-cols-2 gap-2">
-              <input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)}
-                className="bg-background p-3 text-sm rounded-xl outline-none" />
-              <input type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)}
-                className="bg-background p-3 text-sm rounded-xl outline-none" />
+              <div>
+                <p className="text-[9px] font-bold text-muted-foreground px-1 mb-0.5">Datum</p>
+                <input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)}
+                  className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-muted-foreground px-1 mb-0.5">Uur</p>
+                <input type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)}
+                  className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
+              </div>
             </div>
           </div>
         )}

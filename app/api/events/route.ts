@@ -57,6 +57,10 @@ export async function GET(request: Request) {
       .eq("group_id", groupId)
       .order("start_time", { ascending: true });
 
+    // Bij een fout NOOIT 200 met een lege array teruggeven: dat laat SWR
+    // een geldige cache overschrijven met "geen activiteiten" totdat de
+    // gebruiker wegnavigeert en terugkomt. Geef altijd een error-status
+    // terug zodat de client de vorige (goede) data behoudt.
     if (fallbackError) {
       console.error("events fallback-fetch faalde ook:", fallbackError.message);
       return NextResponse.json(
@@ -66,7 +70,10 @@ export async function GET(request: Request) {
     }
 
     const withEmptyRsvps = (eventsOnly ?? []).map((e) => ({ ...e, event_rsvps: [] }));
-    return NextResponse.json({ events: withEmptyRsvps, groupProfiles: profilesMap });
+    return NextResponse.json(
+      { events: withEmptyRsvps, groupProfiles: profilesMap, error: eventsError.message },
+      { status: 200 }
+    );
   }
 
   return NextResponse.json({ events: events ?? [], groupProfiles: profilesMap });
