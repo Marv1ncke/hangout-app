@@ -24,7 +24,7 @@ export default function LoginPage() {
     async function checkSession() {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        router.push("/events");
+        router.replace("/events");
       }
     }
     checkSession();
@@ -89,7 +89,7 @@ export default function LoginPage() {
       }
 
       if (data.session) {
-        router.push("/events");
+        router.replace("/events");
       } else {
         setMessage(
           "Account created. Check your email to confirm your account, then log in."
@@ -112,8 +112,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/events");
-    setLoading(false);
+    router.replace("/events");
   }
 
   // --- RENDER FORGOT PASSWORD VIEW ---

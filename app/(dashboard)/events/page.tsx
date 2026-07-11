@@ -170,6 +170,9 @@ export default function EventsPage() {
     [monthCursor]
   );
 
+  if (navData === undefined) {
+    return <div className="min-h-[50vh]" />;
+  }
   if (!activeGroupId) {
     return (
       <div className="p-10 text-center text-sm font-bold text-muted-foreground">
@@ -268,10 +271,12 @@ export default function EventsPage() {
         .insert({ event_id: ev.id, user_id: uid, status });
       if (insError) throw insError;
 
-      // Revalideer op de achtergrond maar NOOIT de optimistic UI leegmaken:
-      // populateCache blijft standaard, en fetch-fouten gooien we hier weg
-      // zodat een tijdelijke server-hik de al-correcte lijst niet wist.
-      mutate().catch(() => {});
+      // GEEN mutate()-revalidatie meer hier: de optimistic update hierboven
+      // is al correct (we weten exact wat er in de DB staat, wij hebben het
+      // net geschreven). Een herfetch via de GET-route met de event_rsvps-
+      // join bleek bij "not_going" soms een lege/foute set terug te geven,
+      // wat de hele lijst leegmaakte in de UI. Simpelweg niet meer herladen
+      // na een geslaagde write elimineert dat volledig.
     } catch {
       mutate(previous, false);
     } finally {
@@ -735,12 +740,21 @@ function EventCard({
           </p>
         </div>
 
-        {going.length > 0 && (
+        {(going.length > 0 || notGoing.length > 0) && (
           <AvatarGroup className="shrink-0 mt-0.5">
-            {going.slice(0, 3).map((r) => {
+            {[...going, ...notGoing].slice(0, 3).map((r) => {
               const profile = groupProfiles[r.user_id];
+              const isGoing = r.status === "going";
               return (
-                <Avatar key={r.user_id} size="sm" title={profile?.full_name ?? undefined}>
+                <Avatar
+                  key={r.user_id}
+                  size="sm"
+                  title={profile?.full_name ?? undefined}
+                  className={cn(
+                    "ring-2 ring-offset-2 ring-offset-container-bg",
+                    isGoing ? "ring-green-500" : "ring-red-500 grayscale opacity-60"
+                  )}
+                >
                   {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
                   <AvatarFallback>
                     {(profile?.full_name ?? "?").slice(0, 1).toUpperCase()}
