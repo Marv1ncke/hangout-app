@@ -1,25 +1,34 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
+
+// Zelfde patroon als /api/events: de sessie zit in localStorage, niet in
+// cookies, dus de server route moet het access-token uit de Authorization-
+// header lezen (meegestuurd door de globale SWR-fetcher in AppProviders.tsx).
+function getSupabaseForRequest(request: Request) {
+  const authHeader = request.headers.get("authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const groupId = searchParams.get("groupId");
   if (!groupId) return NextResponse.json([], { status: 400 });
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        },
-      },
-    }
-  );
+  const supabase = getSupabaseForRequest(request);
 
   const { data: members } = await supabase
     .from("group_members")
@@ -29,12 +38,19 @@ export async function GET(request: Request) {
 
   const formattedMembers = members?.map((m: any) => m.profiles).filter(Boolean) || [];
 
-  const { data: expenses } = await supabase
+  const { data: expenses, error } = await supabase
     .from("expenses")
     .select("*")
     .eq("group_id", groupId)
-    .eq("is_archived", false)
     .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("expenses fetch faalde:", error.message);
+    return NextResponse.json(
+      { members: formattedMembers, expenses: [], error: error.message },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ members: formattedMembers, expenses: expenses ?? [] });
 }
