@@ -14,6 +14,7 @@ import {
   Check,
   X,
   Trash2,
+  Pencil,
   Calendar as CalendarIcon,
   List,
 } from "lucide-react";
@@ -114,6 +115,7 @@ export default function EventsPage() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
   const [rsvpBusyId, setRsvpBusyId] = useState<string | null>(null);
   const [navigateTarget, setNavigateTarget] = useState<EventRow | null>(null);
 
@@ -184,7 +186,39 @@ export default function EventsPage() {
   }
   const uid = userId;
 
+  function openEditSheet(ev: EventRow) {
+    setEditingEvent(ev);
+    setTitle(ev.title);
+    setDescription(ev.description ?? "");
+    const start = new Date(ev.start_time);
+    setStartDate(start.toISOString().slice(0, 10));
+    setStartTime(start.toISOString().slice(11, 16));
+    if (ev.end_time) {
+      const end = new Date(ev.end_time);
+      setHasEnd(true);
+      setEndDate(end.toISOString().slice(0, 10));
+      setEndTime(end.toISOString().slice(11, 16));
+    } else {
+      setHasEnd(false);
+      setEndDate("");
+      setEndTime("");
+    }
+    setHasLocation(ev.has_location);
+    setLocationName(ev.location_name ?? "");
+    setLocation(ev.location ?? "");
+    setLocationCoords(
+      ev.location_lat != null && ev.location_lng != null
+        ? { lat: ev.location_lat, lng: ev.location_lng }
+        : null
+    );
+    setHasDresscode(ev.has_dresscode);
+    setDresscode(ev.dresscode ?? "");
+    setFormError(null);
+    setShowCreateSheet(true);
+  }
+
   function resetForm() {
+    setEditingEvent(null);
     setTitle("");
     setDescription("");
     setStartDate("");
@@ -255,7 +289,7 @@ export default function EventsPage() {
     mutate();
   }
 
-  async function createEvent(e: React.FormEvent) {
+  async function saveEvent(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
 
@@ -278,27 +312,51 @@ export default function EventsPage() {
 
     setSubmitting(true);
 
-    const { error } = await supabase.rpc("create_event_atomic", {
-      p_group_id: activeGroupId,
-      p_title: title,
-      p_description: description || null,
-      p_start_time: startIso,
-      p_end_time: endIso,
-      p_has_location: hasLocation,
-      p_location_name: hasLocation ? locationName || null : null,
-      p_location: hasLocation ? location || null : null,
-      p_has_dresscode: hasDresscode,
-      p_dresscode: hasDresscode ? dresscode || null : null,
-      p_has_bring_list: false,
-      p_location_lat: hasLocation ? locationCoords?.lat ?? null : null,
-      p_location_lng: hasLocation ? locationCoords?.lng ?? null : null,
-    });
+    if (editingEvent) {
+      const { error } = await supabase
+        .from("events")
+        .update({
+          title,
+          description: description || null,
+          start_time: startIso,
+          end_time: endIso,
+          has_location: hasLocation,
+          location_name: hasLocation ? locationName || null : null,
+          location: hasLocation ? location || null : null,
+          location_lat: hasLocation ? locationCoords?.lat ?? null : null,
+          location_lng: hasLocation ? locationCoords?.lng ?? null : null,
+          has_dresscode: hasDresscode,
+          dresscode: hasDresscode ? dresscode || null : null,
+        })
+        .eq("id", editingEvent.id);
 
-    setSubmitting(false);
+      setSubmitting(false);
+      if (error) {
+        setFormError(error.message);
+        return;
+      }
+    } else {
+      const { error } = await supabase.rpc("create_event_atomic", {
+        p_group_id: activeGroupId,
+        p_title: title,
+        p_description: description || null,
+        p_start_time: startIso,
+        p_end_time: endIso,
+        p_has_location: hasLocation,
+        p_location_name: hasLocation ? locationName || null : null,
+        p_location: hasLocation ? location || null : null,
+        p_has_dresscode: hasDresscode,
+        p_dresscode: hasDresscode ? dresscode || null : null,
+        p_has_bring_list: false,
+        p_location_lat: hasLocation ? locationCoords?.lat ?? null : null,
+        p_location_lng: hasLocation ? locationCoords?.lng ?? null : null,
+      });
 
-    if (error) {
-      setFormError(error.message);
-      return;
+      setSubmitting(false);
+      if (error) {
+        setFormError(error.message);
+        return;
+      }
     }
 
     setShowCreateSheet(false);
@@ -315,7 +373,7 @@ export default function EventsPage() {
           <p className="text-xs text-muted-foreground">{navData?.activeGroup?.name}</p>
         </div>
         <button
-          onClick={() => setShowCreateSheet(true)}
+          onClick={() => { resetForm(); setShowCreateSheet(true); }}
           className="text-xs font-bold bg-btn-bg text-btn-text px-3.5 py-2.5 rounded-2xl flex items-center gap-1 active:scale-95 transition-transform"
         >
           <Plus size={14} strokeWidth={2.5} /> Nieuw
@@ -365,6 +423,7 @@ export default function EventsPage() {
           onRsvp={handleRsvp}
           rsvpBusyId={rsvpBusyId}
           onDelete={handleDeleteEvent}
+          onEdit={openEditSheet}
           groupProfiles={groupProfiles}
           onNavigate={setNavigateTarget}
         />
@@ -379,14 +438,16 @@ export default function EventsPage() {
           onRsvp={handleRsvp}
           rsvpBusyId={rsvpBusyId}
           onDelete={handleDeleteEvent}
+          onEdit={openEditSheet}
           groupProfiles={groupProfiles}
           onNavigate={setNavigateTarget}
         />
       )}
 
-      {/* CREATE SHEET */}
+      {/* CREATE / EDIT SHEET */}
       <CreateEventSheet
         open={showCreateSheet}
+        isEditing={!!editingEvent}
         onClose={() => { setShowCreateSheet(false); resetForm(); }}
         title={title} setTitle={setTitle}
         description={description} setDescription={setDescription}
@@ -403,7 +464,7 @@ export default function EventsPage() {
         dresscode={dresscode} setDresscode={setDresscode}
         formError={formError}
         submitting={submitting}
-        onSubmit={createEvent}
+        onSubmit={saveEvent}
       />
 
       <NavigateSheet
@@ -504,7 +565,7 @@ function MonthView({
 // Dag-detail onder de maandkalender
 // ============================================================
 function DayAgenda({
-  day, events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete, groupProfiles, onNavigate,
+  day, events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete, onEdit, groupProfiles, onNavigate,
 }: {
   day: Date;
   events: EventRow[];
@@ -514,6 +575,7 @@ function DayAgenda({
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   rsvpBusyId: string | null;
   onDelete: (ev: EventRow) => void;
+  onEdit: (ev: EventRow) => void;
   groupProfiles: GroupProfiles;
   onNavigate: (ev: EventRow) => void;
 }) {
@@ -535,6 +597,7 @@ function DayAgenda({
             onRsvp={onRsvp}
             busy={rsvpBusyId === ev.id}
             onDelete={onDelete}
+            onEdit={onEdit}
             groupProfiles={groupProfiles}
             onNavigate={onNavigate}
           />
@@ -548,7 +611,7 @@ function DayAgenda({
 // Lijstweergave
 // ============================================================
 function ListView({
-  events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete, groupProfiles, onNavigate,
+  events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete, onEdit, groupProfiles, onNavigate,
 }: {
   events: EventRow[];
   uid: string;
@@ -557,6 +620,7 @@ function ListView({
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   rsvpBusyId: string | null;
   onDelete: (ev: EventRow) => void;
+  onEdit: (ev: EventRow) => void;
   groupProfiles: GroupProfiles;
   onNavigate: (ev: EventRow) => void;
 }) {
@@ -594,6 +658,7 @@ function ListView({
                 onRsvp={onRsvp}
                 busy={rsvpBusyId === ev.id}
                 onDelete={onDelete}
+                onEdit={onEdit}
                 groupProfiles={groupProfiles}
                 onNavigate={onNavigate}
               />
@@ -609,7 +674,7 @@ function ListView({
 // Event kaart (samengevouwen + expand)
 // ============================================================
 function EventCard({
-  ev, uid, expanded, onToggle, onRsvp, busy, onDelete, groupProfiles, onNavigate,
+  ev, uid, expanded, onToggle, onRsvp, busy, onDelete, onEdit, groupProfiles, onNavigate,
 }: {
   ev: EventRow;
   uid: string;
@@ -618,6 +683,7 @@ function EventCard({
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   busy: boolean;
   onDelete: (ev: EventRow) => void;
+  onEdit: (ev: EventRow) => void;
   groupProfiles: GroupProfiles;
   onNavigate: (ev: EventRow) => void;
 }) {
@@ -761,14 +827,22 @@ function EventCard({
             </div>
           )}
 
-          {/* Verwijderen: enkel zichtbaar voor de gebruiker die de activiteit aanmaakte */}
+          {/* Bewerk + Verwijderen: enkel zichtbaar voor de aanmaker */}
           {ev.created_by === uid && (
-            <button
-              onClick={() => onDelete(ev)}
-              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-destructive bg-destructive/10 active:scale-95 transition-all mt-1"
-            >
-              <Trash2 size={13} /> Activiteit verwijderen
-            </button>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => onEdit(ev)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-foreground bg-background border border-border active:scale-95 transition-all"
+              >
+                <Pencil size={13} /> Bewerk
+              </button>
+              <button
+                onClick={() => onDelete(ev)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-destructive bg-destructive/10 active:scale-95 transition-all"
+              >
+                <Trash2 size={13} /> Verwijder
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -781,7 +855,7 @@ function EventCard({
 // ============================================================
 function CreateEventSheet(props: any) {
   const {
-    open, onClose,
+    open, onClose, isEditing,
     title, setTitle, description, setDescription,
     startDate, setStartDate, startTime, setStartTime,
     hasEnd, setHasEnd, endDate, setEndDate, endTime, setEndTime,
@@ -794,7 +868,7 @@ function CreateEventSheet(props: any) {
     <DragSheet
       open={open}
       onClose={onClose}
-      title="Nieuwe activiteit"
+      title={isEditing ? "Activiteit bewerken" : "Nieuwe activiteit"}
       bottomOffset={SHEET_BOTTOM_OFFSET}
       className="max-h-[85dvh]"
     >
@@ -876,7 +950,7 @@ function CreateEventSheet(props: any) {
           disabled={submitting}
           className="w-full bg-btn-bg text-btn-text text-sm font-bold py-3 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
         >
-          {submitting ? "Aanmaken..." : "Aanmaken"}
+          {submitting ? (isEditing ? "Opslaan..." : "Aanmaken...") : (isEditing ? "Opslaan" : "Aanmaken")}
         </button>
       </form>
     </DragSheet>
