@@ -1,882 +1,894 @@
-/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useMemo, useState, useTransition } from "react";
-import Image from "next/image";
+import React, { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { useNavData } from "../../../hooks/useNavData";
-import { mutate } from "swr";
-import { Check, Share2, Copy, Users, Pencil, LogOut, X } from "lucide-react";
-import { useGroupMembers } from "../../../hooks/useNavData"; 
+import { useNavData } from "@/hooks/useNavData";
+import { useEventsData } from "@/hooks/usePwaData";
+import {
+  Plus,
+  MapPin,
+  Shirt,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  X,
+  Trash2,
+  Calendar as CalendarIcon,
+  List,
+} from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
 import { DragSheet } from "@/components/ui/drag-sheet";
+import { AddressAutocomplete, type AddressResult } from "@/components/ui/address-autocomplete";
+import { NavigateSheet } from "@/components/ui/navigate-sheet";
+import { cn } from "@/lib/utils";
 
-interface Group {
+const BOTTOM_NAV_HEIGHT = 58;
+const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
+
+type ViewType = "list" | "month";
+type RsvpStatus = "going" | "not_going";
+
+interface Profile {
   id: string;
-  name: string;
-  join_code: string;
-  invite_code: string;
-  is_protected: boolean;
-  created_by?: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+type GroupProfiles = Record<string, Profile>;
+
+interface EventRow {
+  id: string;
+  group_id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string | null;
+  has_location: boolean;
+  location_name: string | null;
+  location: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+  has_dresscode: boolean;
+  dresscode: string | null;
+  has_bring_list: boolean;
+  created_by: string;
+  created_at: string;
+  event_rsvps: { user_id: string; status: RsvpStatus }[];
 }
 
-interface GroupMemberDetail {
-  user_id: string;
-  full_name: string;
-  avatar_url: string;
+const WEEKDAY_LABELS = ["ma", "di", "wo", "do", "vr", "za", "zo"];
+const MONTH_LABELS = [
+  "januari", "februari", "maart", "april", "mei", "juni",
+  "juli", "augustus", "september", "oktober", "november", "december",
+];
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
 }
 
-export default function GroupsPage() {
-  const { data: navData, mutate: mutateNav } = useNavData();
+function isSameDay(a: Date, b: Date) {
+  return a.toDateString() === b.toDateString();
+}
 
-  // Selection state (naar boven verplaatst om bruikbaar te zijn in useGroupMembers hook)
-  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+// Bouwt een 6-weken grid (42 dagen) voor de maandweergave, ma-start
+function buildMonthGrid(year: number, month: number) {
+  const first = new Date(year, month, 1);
+  const firstWeekday = (first.getDay() + 6) % 7; // ma=0
+  const gridStart = new Date(year, month, 1 - firstWeekday);
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    return d;
+  });
+}
 
-  // Slimme SWR-cache hook voor groepsleden gekoppeld aan de geselecteerde groep
-  const { data: cachedGroupMembers = [] } = useGroupMembers(selectedGroup?.id);
-  
-  const activeGroupId = (navData as any)?.activeGroup?.id || null;
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("nl-BE", { hour: "2-digit", minute: "2-digit" });
+}
 
-  // userId komt rechtstreeks uit navData (SWR levert direct de localStorage-cache,
-  // dus dit is bij een warme cache al gevuld op de allereerste render — geen aparte
-  // fetch/useState/useEffect race meer nodig).
-  const userId = navData?.user?.id ?? "";
-  // isAuthLoading is losgekoppeld van userId zelf: knoppen mogen pas "niet ingelogd"
-  // tonen zodra we zeker weten dat SWR klaar is (niet tijdens de initiële fetch).
-  const isAuthLoading = navData === undefined;
+function formatDayLabel(iso: string) {
+  return new Date(iso).toLocaleDateString("nl-BE", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
 
-  const groups = ((navData as any)?.groups || []) as Group[];
+function isMultiDay(ev: EventRow) {
+  if (!ev.end_time) return false;
+  return !isSameDay(new Date(ev.start_time), new Date(ev.end_time));
+}
 
-  const [isPending, startTransition] = useTransition();
+export default function EventsPage() {
+  const { data: navData } = useNavData();
 
-  // UI
-  const [activeFont, setActiveFont] = useState("inherit");
-  const [toast, setToast] = useState<{ message: string; sub?: string } | null>(null);
+  const activeGroupId = navData?.activeGroup?.id ?? null;
+  const userId = navData?.user?.id ?? null;
+  const safeGroupId = activeGroupId ?? "";
+  const { events, groupProfiles, mutate } = useEventsData(safeGroupId);
 
-  // Sheets / dialogs
+  const [currentView, setCurrentView] = useState<ViewType>("list");
+  const [monthCursor, setMonthCursor] = useState(() => startOfDay(new Date()));
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
-  const [showJoinSheet, setShowJoinSheet] = useState(false);
-  const [showMembersSheet, setShowMembersSheet] = useState(false);
-  const [showEditSheet, setShowEditSheet] = useState(false);
-  const [showLeaveConfirmSheet, setShowLeaveConfirmSheet] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [rsvpBusyId, setRsvpBusyId] = useState<string | null>(null);
+  const [navigateTarget, setNavigateTarget] = useState<EventRow | null>(null);
 
-  const [closingSheet, setClosingSheet] = useState(false);
+  // create form state
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [hasEnd, setHasEnd] = useState(false);
+  const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [hasLocation, setHasLocation] = useState(false);
+  const [locationName, setLocationName] = useState("");
+  const [location, setLocation] = useState("");
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [hasDresscode, setHasDresscode] = useState(false);
+  const [dresscode, setDresscode] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  function closeSheet(setter: React.Dispatch<React.SetStateAction<boolean>>) {
-    setClosingSheet(true);
-  
-    setTimeout(() => {
-      setter(false);
-      setClosingSheet(false);
-    }, 280);
-  }
+  const sortedEvents: EventRow[] = useMemo(
+    () => [...events].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()),
+    [events]
+  );
 
-  // Form state
-  const [groupName, setGroupName] = useState("");
-  const [isProtected, setIsProtected] = useState(false);
-  const [joinCodeInput, setJoinCodeInput] = useState("");
-  const [editGroupNameInput, setEditGroupNameInput] = useState("");
-
-  // Volledig gevulde state die we synchroniseren met de SWR-cache data
-  const [selectedGroupMembers, setSelectedGroupMembers] = useState<GroupMemberDetail[]>([]);
-
-  // Synchroniseer geselecteerde leden direct zodra de cache binnenkomt of verandert
-  useEffect(() => {
-    if (cachedGroupMembers && cachedGroupMembers.length > 0) {
-      setSelectedGroupMembers(cachedGroupMembers);
-    }
-  }, [cachedGroupMembers]);
-
-  const BOTTOM_NAV_HEIGHT = 58;
-  const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
-
-  function showNotification(message: string, sub?: string) {
-    setToast({ message, sub });
-    window.clearTimeout((showNotification as any)._timer);
-    (showNotification as any)._timer = window.setTimeout(() => {
-      setToast(null);
-    }, 3500);
-  }
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedFont = localStorage.getItem("app-custom-font");
-      if (storedFont) setActiveFont(storedFont);
-    }
-  }, []);
-
-  useEffect(() => {
-    async function updateAppBadge() {
-      if (
-        typeof navigator === "undefined" ||
-        !("setAppBadge" in navigator)
-      ) {
-        return;
-      }
-  
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData.user;
-  
-      if (!user) return;
-  
-      const { count, error } = await supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
-  
-      if (error) {
-        console.error("Badge update failed:", error.message);
-        return;
-      }
-  
-      if ((count || 0) > 0) {
-        await navigator.setAppBadge(count || 0);
-      } else {
-        await navigator.clearAppBadge();
-      }
-    }
-  
-    updateAppBadge();
-  }, []);
-
-  const groupCount = useMemo(() => groups.length, [groups]);
-
-  // ----------------------------------------
-  // Helpers
-  // ----------------------------------------
-  function makeJoinCode() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  }
-
-  function closeAllTransientSheets() {
-    setShowCreateSheet(false);
-    setShowJoinSheet(false);
-    setShowEditSheet(false);
-    setShowLeaveConfirmSheet(false);
-    setShowDeleteConfirm(false);
-  }
-
-  async function forceNavRefresh() {
-    await mutateNav();
-  }
-
-  // ----------------------------------------
-  // Active group switch
-  // ----------------------------------------
-  async function handleSelectActiveGroup(groupId: string) {
-    if (!userId || !groupId || groupId === activeGroupId) return;
-
-    const targetGroup = groups.find((g) => g.id === groupId);
-    if (!targetGroup) return;
-
-    mutateNav(
-      (old: any) => ({
-        ...old,
-        activeGroup: targetGroup,
-        profile: old?.profile
-          ? { ...old.profile, selected_group_id: groupId }
-          : old?.profile,
-      }),
-      false
-    );
-
-    showNotification("Werkruimte gewisseld ✨");
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({ selected_group_id: groupId })
-      .eq("id", userId);
-
-    if (error) {
-      showNotification("Kon groep niet activeren", error.message);
-    }
-
-    await mutateNav();
-    mutate((key) => Array.isArray(key) && key.includes(groupId));
-  }
-
-  // ----------------------------------------
-  // Create group
-  // ----------------------------------------
-  async function handleCreateGroup(e: React.FormEvent) {
-    e.preventDefault();
-
-    const trimmedName = groupName.trim();
-    if (!trimmedName || !userId) return;
-
-    const generatedCode = makeJoinCode();
-
-    const optimisticGroup: Group = {
-      id: `temp-${Math.random().toString(36).slice(2)}`,
-      name: trimmedName,
-      join_code: generatedCode,
-      invite_code: generatedCode,
-      is_protected: isProtected,
-      created_by: userId,
-    };
-
-    mutateNav(
-      (old: any) => ({
-        ...old,
-        groups: [...(old?.groups || []), optimisticGroup],
-        activeGroup: optimisticGroup,
-        profile: old?.profile
-          ? { ...old.profile, selected_group_id: optimisticGroup.id }
-          : old?.profile,
-      }),
-      false
-    );
-
-    showNotification("Groep aangemaakt", `Code: ${generatedCode}`);
-
-    setGroupName("");
-    setIsProtected(false);
-    setShowCreateSheet(false);
-
-    // Eén atomaire RPC: insert group + insert member + update profile gebeuren
-    // nu allemaal in dezelfde DB-transactie. Geen race condition meer waarbij
-    // een groep met 0 leden kan ontstaan.
-    const { data: createdGroup, error: rpcError } = await supabase.rpc(
-      "create_group_atomic",
-      {
-        p_name: trimmedName,
-        p_join_code: generatedCode,
-        p_is_protected: isProtected,
-      }
-    );
-
-    if (rpcError || !createdGroup) {
-      showNotification("Fout bij aanmaken", rpcError?.message || "Onbekende fout");
-      await mutateNav();
-      return;
-    }
-
-    await forceNavRefresh();
-  }
-
-  // ----------------------------------------
-  // Join by code
-  // ----------------------------------------
-  async function handleJoinCodeSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const code = joinCodeInput.trim().toUpperCase();
-    if (!code || !userId) return;
-
-    // Eén atomaire RPC: zoekt de groep, controleert bestaand lidmaatschap, en
-    // insert member + update profile in dezelfde transactie. De DB is hier de
-    // enige bron van waarheid over "ben ik al lid" — geen dubbele check + insert
-    // vanuit de client die elkaar in de weg kunnen zitten bij een dubbelklik.
-    const { data: result, error: rpcError } = await supabase.rpc(
-      "join_group_atomic",
-      { p_join_code: code }
-    );
-
-    if (rpcError) {
-      console.error("join_group_atomic error:", rpcError);
-      showNotification("Code niet gevonden 🔍", rpcError.message || "Controleer de code en probeer opnieuw.");
-      return;
-    }
-
-    const targetGroup = result.group as Group;
-    const status = result.status as "active" | "pending";
-
-    if (result.already_member) {
-      showNotification(
-        status === "pending" ? "Je verzoek staat al open 📩" : "Je zit al in deze groep"
-      );
-      setJoinCodeInput("");
-      setShowJoinSheet(false);
-      if (status === "active") await forceNavRefresh();
-      return;
-    }
-
-    if (status === "pending") {
-      showNotification(
-        "Verzoek verzonden 📩",
-        `Wacht tot leden van ${targetGroup.name} je accepteren.`
-      );
-      setJoinCodeInput("");
-      setShowJoinSheet(false);
-      return;
-    }
-
-    showNotification("Groep toegevoegd! ✨", `Je bent nu lid van ${targetGroup.name}`);
-    setJoinCodeInput("");
-    setShowJoinSheet(false);
-    await forceNavRefresh();
-  }
-
-  // ----------------------------------------
-  // Open members list (Nu aangedreven door SWR met fallback cache)
-  // ----------------------------------------
-  async function openMembersList(group: Group) {
-    setSelectedGroup(group);
-    setShowMembersSheet(true);
-
-    // Als er al gecachte leden zijn voor dit groeps-id, laad deze dan direct flitsend in
-    if (cachedGroupMembers && cachedGroupMembers.length > 0) {
-      setSelectedGroupMembers(cachedGroupMembers);
-      return;
-    }
-
-    // Directe live fallback mocht de cache op dit specifieke moment nog leeg zijn
-    const { data: membersData, error } = await supabase
-      .from("group_members")
-      .select(`
-        user_id,
-        status,
-        profiles:user_id ( full_name, avatar_url )
-      `)
-      .eq("group_id", group.id)
-      .eq("status", "active");
-
-    if (error) {
-      showNotification("Kon leden niet ophalen", error.message);
-      return;
-    }
-
-    if (membersData) {
-      const formatted = membersData.map((m: any) => ({
-        user_id: m.user_id,
-        full_name: m.profiles?.full_name || `Lid ${String(m.user_id).slice(0, 4)}`,
-        avatar_url:
-          m.profiles?.avatar_url ||
-          `https://api.dicebear.com/7.x/initials/svg?seed=${m.user_id}`,
-      }));
-      setSelectedGroupMembers(formatted);
-    }
-  }
-
-  // ----------------------------------------
-  // Edit group name
-  // ----------------------------------------
-  async function handleEditGroupName(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedGroup) return;
-
-    const trimmedName = editGroupNameInput.trim();
-    if (!trimmedName) return;
-
-    mutateNav(
-      (old: any) => ({
-        ...old,
-        groups:
-          old?.groups?.map((g: any) =>
-            g.id === selectedGroup.id ? { ...g, name: trimmedName } : g
-          ) || [],
-        activeGroup:
-          old?.activeGroup?.id === selectedGroup.id
-            ? { ...old.activeGroup, name: trimmedName }
-            : old?.activeGroup,
-      }),
-      false
-    );
-
-    setShowEditSheet(false);
-    showNotification("Groepsnaam bijgewerkt 📝");
-
-    const { error } = await supabase
-      .from("groups")
-      .update({ name: trimmedName })
-      .eq("id", selectedGroup.id);
-
-    if (error) {
-      showNotification("Bijwerken mislukt", error.message);
-    }
-
-    await forceNavRefresh();
-  }
-
-  // ----------------------------------------
-  // Leave / delete
-  // ----------------------------------------
-  async function handleLeaveGroupTrigger(group: Group) {
-    setSelectedGroup(group);
-
-    const { count, error } = await supabase
-      .from("group_members")
-      .select("*", { count: "exact", head: true })
-      .eq("group_id", group.id)
-      .eq("status", "active");
-
-    if (error) {
-      showNotification("Kon groepsstatus niet controleren", error.message);
-      return;
-    }
-
-    if ((count || 0) <= 1) {
-      setShowDeleteConfirm(true);
-    } else {
-      setShowLeaveConfirmSheet(true);
-    }
-  }
-
-  async function executeLeave(groupId: string, deleteEntireGroup: boolean) {
-    const oldNav = navData as any;
-    const oldGroups = oldNav?.groups || [];
-    const remainingGroups = oldGroups.filter((g: any) => g.id !== groupId);
-    const nextFallbackId = remainingGroups[0]?.id || null;
-    const nextFallbackGroup =
-      remainingGroups.find((g: any) => g.id === nextFallbackId) || remainingGroups[0] || null;
-
-    // optimistic nav update
-    mutateNav(
-      (old: any) => ({
-        ...old,
-        groups: remainingGroups,
-        memberships:
-          old?.memberships?.filter((m: any) => m.group_id !== groupId) || [],
-        activeGroup:
-          old?.activeGroup?.id === groupId ? nextFallbackGroup : old?.activeGroup,
-        profile: old?.profile
-          ? { ...old.profile, selected_group_id: nextFallbackId }
-          : old?.profile,
-      }),
-      false
-    );
-
-    if (deleteEntireGroup) {
-      showNotification("Groep definitief verwijderd 🗑️");
-    } else {
-      showNotification("Groep verlaten 🚶‍♂️");
-    }
-
-    setShowDeleteConfirm(false);
-    setShowLeaveConfirmSheet(false);
-
-    // Eén atomaire RPC: verwijdert membership (of hele groep bij laatste lid,
-    // met ON DELETE CASCADE voor members/events/attendance/availability) en
-    // herbepaalt selected_group_id, allemaal in dezelfde transactie.
-    const { error: rpcError } = await supabase.rpc("leave_group_atomic", {
-      p_group_id: groupId,
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    return sortedEvents.filter((ev) => {
+      const end = ev.end_time ? new Date(ev.end_time) : new Date(ev.start_time);
+      return end >= startOfDay(now);
     });
+  }, [sortedEvents]);
 
-    if (rpcError) {
-      showNotification(
-        deleteEntireGroup ? "Groep verwijderen mislukte" : "Groep verlaten mislukt",
-        rpcError.message
-      );
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, EventRow[]>();
+    for (const ev of sortedEvents) {
+      const start = startOfDay(new Date(ev.start_time));
+      const end = ev.end_time ? startOfDay(new Date(ev.end_time)) : start;
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        const key = cursor.toDateString();
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(ev);
+        cursor.setDate(cursor.getDate() + 1);
+      }
     }
+    return map;
+  }, [sortedEvents]);
 
-    await forceNavRefresh();
+  const monthGrid = useMemo(
+    () => buildMonthGrid(monthCursor.getFullYear(), monthCursor.getMonth()),
+    [monthCursor]
+  );
+
+  if (!activeGroupId) {
+    return (
+      <div className="p-10 text-center text-sm font-bold text-muted-foreground">
+        Selecteer eerst een groep om de agenda te bekijken.
+      </div>
+    );
+  }
+  if (!userId) {
+    return (
+      <div className="p-10 text-center text-sm font-bold text-muted-foreground">
+        Je bent niet ingelogd.
+      </div>
+    );
+  }
+  const uid = userId;
+
+  function resetForm() {
+    setTitle("");
+    setDescription("");
+    setStartDate("");
+    setStartTime("");
+    setHasEnd(false);
+    setEndDate("");
+    setEndTime("");
+    setHasLocation(false);
+    setLocationName("");
+    setLocation("");
+    setLocationCoords(null);
+    setHasDresscode(false);
+    setDresscode("");
+    setFormError(null);
   }
 
-  // ----------------------------------------
-  // Share code
-  // ----------------------------------------
-  async function handleShareCode(group: Group) {
-    const code = group.join_code;
+  async function handleRsvp(ev: EventRow, status: RsvpStatus) {
+    if (rsvpBusyId === ev.id) return;
+    setRsvpBusyId(ev.id);
+
+    const previous = events;
+    mutate(
+      (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          events: old.events.map((e: EventRow) => {
+            if (e.id !== ev.id) return e;
+            const withoutMe = e.event_rsvps.filter((r) => r.user_id !== uid);
+            return { ...e, event_rsvps: [...withoutMe, { user_id: uid, status }] };
+          }),
+        };
+      },
+      false
+    );
 
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `Groep: ${group.name}`,
-          text: `Join onze groep "${group.name}" met code: ${code}`,
-        });
-        showNotification("Uitnodiging gedeeld ✨");
-        return;
-      }
-
-      await navigator.clipboard.writeText(code);
-      showNotification("Code gekopieerd 📋", code);
+      const { error } = await supabase
+        .from("event_rsvps")
+        .upsert({ event_id: ev.id, user_id: uid, status }, { onConflict: "event_id,user_id" });
+      if (error) throw error;
+      await mutate();
     } catch {
-      try {
-        await navigator.clipboard.writeText(code);
-        showNotification("Code gekopieerd 📋", code);
-      } catch {
-        showNotification("Kon code niet delen", code);
-      }
+      mutate(previous, false);
+    } finally {
+      setRsvpBusyId(null);
     }
   }
 
-  // ----------------------------------------
-  // Render
-  // ----------------------------------------
+  async function handleDeleteEvent(ev: EventRow) {
+    if (ev.created_by !== uid) return; // extra guard, RLS dekt dit al af
+    const confirmed = window.confirm(`"${ev.title}" verwijderen? Dit kan niet ongedaan gemaakt worden.`);
+    if (!confirmed) return;
+
+    const previous = events;
+    mutate(
+      (old: any) => old ? { ...old, events: old.events.filter((e: EventRow) => e.id !== ev.id) } : old,
+      false
+    );
+
+    const { error } = await supabase.from("events").delete().eq("id", ev.id);
+    if (error) {
+      mutate(previous, false);
+      window.alert("Verwijderen mislukt: " + error.message);
+      return;
+    }
+    setExpandedId((cur) => (cur === ev.id ? null : cur));
+    mutate();
+  }
+
+  async function createEvent(e: React.FormEvent) {
+    e.preventDefault();
+    setFormError(null);
+
+    if (!title || !startDate || !startTime) {
+      setFormError("Titel, datum en starttijd zijn verplicht.");
+      return;
+    }
+    if (hasEnd && (!endDate || !endTime)) {
+      setFormError("Vul een einddatum en -tijd in, of zet het eindmoment uit.");
+      return;
+    }
+
+    const startIso = new Date(`${startDate}T${startTime}`).toISOString();
+    const endIso = hasEnd ? new Date(`${endDate}T${endTime}`).toISOString() : null;
+
+    if (endIso && new Date(endIso).getTime() <= new Date(startIso).getTime()) {
+      setFormError("De stoptijd moet na de starttijd liggen. Een activiteit kan geen 0 of negatieve duur hebben.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    const { error } = await supabase.rpc("create_event_atomic", {
+      p_group_id: activeGroupId,
+      p_title: title,
+      p_description: description || null,
+      p_start_time: startIso,
+      p_end_time: endIso,
+      p_has_location: hasLocation,
+      p_location_name: hasLocation ? locationName || null : null,
+      p_location: hasLocation ? location || null : null,
+      p_has_dresscode: hasDresscode,
+      p_dresscode: hasDresscode ? dresscode || null : null,
+      p_has_bring_list: false,
+      p_location_lat: hasLocation ? locationCoords?.lat ?? null : null,
+      p_location_lng: hasLocation ? locationCoords?.lng ?? null : null,
+    });
+
+    setSubmitting(false);
+
+    if (error) {
+      setFormError(error.message);
+      return;
+    }
+
+    setShowCreateSheet(false);
+    resetForm();
+    mutate();
+  }
+
   return (
-    <div
-      style={{ fontFamily: activeFont }}
-      className="space-y-8 relative min-h-screen pb-20 select-none animate-in fade-in"
-    >
-      {/* FLOATING TOAST */}
-      {toast && (
-        <div className="fixed bottom-20 left-4 right-4 z-[10000] flex justify-center pointer-events-none">
-          <div className="bg-neutral-900/95 border border-white/10 text-white w-full max-w-sm rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl flex items-center space-x-3 pointer-events-auto">
-            <div className="bg-container-bg/10 h-8 w-8 rounded-full flex items-center justify-center text-sm shrink-0">
-              💬
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold tracking-tight text-neutral-50">
-                {toast.message}
-              </p>
-              {toast.sub && (
-                <p className="text-[10px] text-neutral-400 mt-0.5 truncate">
-                  {toast.sub}
-                </p>
-              )}
-            </div>
-          </div>
+    <div className="max-w-2xl mx-auto space-y-5 pb-24">
+      {/* HEADER */}
+      <div className="flex justify-between items-center pt-2">
+        <div>
+          <h1 className="text-xl font-black tracking-tight">Agenda</h1>
+          <p className="text-xs text-muted-foreground">{navData?.activeGroup?.name}</p>
         </div>
+        <button
+          onClick={() => setShowCreateSheet(true)}
+          className="text-xs font-bold bg-btn-bg text-btn-text px-3.5 py-2.5 rounded-2xl flex items-center gap-1 active:scale-95 transition-transform"
+        >
+          <Plus size={14} strokeWidth={2.5} /> Nieuw
+        </button>
+      </div>
+
+      {/* VIEW SWITCH */}
+      <div className="flex gap-1 bg-container-bg rounded-2xl p-1 w-fit">
+        <button
+          onClick={() => setCurrentView("list")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors",
+            currentView === "list" ? "bg-btn-bg text-btn-text" : "text-muted-foreground"
+          )}
+        >
+          <List size={13} /> Lijst
+        </button>
+        <button
+          onClick={() => setCurrentView("month")}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors",
+            currentView === "month" ? "bg-btn-bg text-btn-text" : "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon size={13} /> Maand
+        </button>
+      </div>
+
+      {currentView === "month" && (
+        <MonthView
+          monthCursor={monthCursor}
+          setMonthCursor={setMonthCursor}
+          grid={monthGrid}
+          eventsByDay={eventsByDay}
+          selectedDay={selectedDay}
+          setSelectedDay={setSelectedDay}
+        />
       )}
 
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground">
-            Groepen
-          </h1>
-          <p className="text-xs font-bold text-neutral-400 mt-0.5">
-            Tik op een kaart om die groep direct te activeren.
+      {currentView === "month" && selectedDay && (
+        <DayAgenda
+          day={selectedDay}
+          events={eventsByDay.get(selectedDay.toDateString()) ?? []}
+          uid={uid}
+          expandedId={expandedId}
+          setExpandedId={setExpandedId}
+          onRsvp={handleRsvp}
+          rsvpBusyId={rsvpBusyId}
+          onDelete={handleDeleteEvent}
+          groupProfiles={groupProfiles}
+          onNavigate={setNavigateTarget}
+        />
+      )}
+
+      {currentView === "list" && (
+        <ListView
+          events={upcomingEvents}
+          uid={uid}
+          expandedId={expandedId}
+          setExpandedId={setExpandedId}
+          onRsvp={handleRsvp}
+          rsvpBusyId={rsvpBusyId}
+          onDelete={handleDeleteEvent}
+          groupProfiles={groupProfiles}
+          onNavigate={setNavigateTarget}
+        />
+      )}
+
+      {/* CREATE SHEET */}
+      <CreateEventSheet
+        open={showCreateSheet}
+        onClose={() => { setShowCreateSheet(false); resetForm(); }}
+        title={title} setTitle={setTitle}
+        description={description} setDescription={setDescription}
+        startDate={startDate} setStartDate={setStartDate}
+        startTime={startTime} setStartTime={setStartTime}
+        hasEnd={hasEnd} setHasEnd={setHasEnd}
+        endDate={endDate} setEndDate={setEndDate}
+        endTime={endTime} setEndTime={setEndTime}
+        hasLocation={hasLocation} setHasLocation={setHasLocation}
+        locationName={locationName} setLocationName={setLocationName}
+        location={location} setLocation={setLocation}
+        onLocationSelect={(r: AddressResult) => setLocationCoords({ lat: r.lat, lng: r.lng })}
+        hasDresscode={hasDresscode} setHasDresscode={setHasDresscode}
+        dresscode={dresscode} setDresscode={setDresscode}
+        formError={formError}
+        submitting={submitting}
+        onSubmit={createEvent}
+      />
+
+      <NavigateSheet
+        open={!!navigateTarget}
+        onClose={() => setNavigateTarget(null)}
+        lat={navigateTarget?.location_lat ?? null}
+        lng={navigateTarget?.location_lng ?? null}
+        address={navigateTarget?.location ?? null}
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// Maandweergave
+// ============================================================
+function MonthView({
+  monthCursor, setMonthCursor, grid, eventsByDay, selectedDay, setSelectedDay,
+}: {
+  monthCursor: Date;
+  setMonthCursor: (d: Date) => void;
+  grid: Date[];
+  eventsByDay: Map<string, EventRow[]>;
+  selectedDay: Date | null;
+  setSelectedDay: (d: Date | null) => void;
+}) {
+  const today = new Date();
+
+  function shiftMonth(delta: number) {
+    const next = new Date(monthCursor);
+    next.setMonth(next.getMonth() + delta);
+    setMonthCursor(next);
+    setSelectedDay(null);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between px-1">
+        <button
+          onClick={() => shiftMonth(-1)}
+          className="size-8 flex items-center justify-center rounded-full hover:bg-container-bg active:scale-90 transition-transform"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="font-bold text-sm capitalize">
+          {MONTH_LABELS[monthCursor.getMonth()]} {monthCursor.getFullYear()}
+        </span>
+        <button
+          onClick={() => shiftMonth(1)}
+          className="size-8 flex items-center justify-center rounded-full hover:bg-container-bg active:scale-90 transition-transform"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 text-center text-[10px] font-bold text-muted-foreground">
+        {WEEKDAY_LABELS.map((d) => <div key={d}>{d}</div>)}
+      </div>
+
+      <div className="grid grid-cols-7 gap-y-1">
+        {grid.map((day, i) => {
+          const inMonth = day.getMonth() === monthCursor.getMonth();
+          const dayEvents = eventsByDay.get(day.toDateString()) ?? [];
+          const isToday = isSameDay(day, today);
+          const isSelected = selectedDay && isSameDay(day, selectedDay);
+
+          return (
+            <button
+              key={i}
+              onClick={() => setSelectedDay(isSelected ? null : day)}
+              className="flex flex-col items-center gap-1 py-1"
+            >
+              <span
+                className={cn(
+                  "size-7 flex items-center justify-center rounded-full text-xs font-semibold transition-colors",
+                  !inMonth && "text-muted-foreground/40",
+                  inMonth && !isSelected && !isToday && "text-foreground",
+                  isToday && !isSelected && "text-btn-bg font-black",
+                  isSelected && "bg-btn-bg text-btn-text"
+                )}
+              >
+                {day.getDate()}
+              </span>
+              <div className="flex gap-0.5 h-1.5">
+                {dayEvents.slice(0, 3).map((ev) => (
+                  <span key={ev.id} className="size-1.5 rounded-full bg-foreground/60" />
+                ))}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Dag-detail onder de maandkalender
+// ============================================================
+function DayAgenda({
+  day, events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete, groupProfiles, onNavigate,
+}: {
+  day: Date;
+  events: EventRow[];
+  uid: string;
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+  onRsvp: (ev: EventRow, status: RsvpStatus) => void;
+  rsvpBusyId: string | null;
+  onDelete: (ev: EventRow) => void;
+  groupProfiles: GroupProfiles;
+  onNavigate: (ev: EventRow) => void;
+}) {
+  return (
+    <div className="space-y-2 pt-1 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+      <p className="text-xs font-bold text-muted-foreground capitalize px-1">
+        {day.toLocaleDateString("nl-BE", { weekday: "long", day: "numeric", month: "long" })}
+      </p>
+      {events.length === 0 ? (
+        <p className="text-xs text-muted-foreground px-1">Geen activiteiten op deze dag.</p>
+      ) : (
+        events.map((ev) => (
+          <EventCard
+            key={ev.id}
+            ev={ev}
+            uid={uid}
+            expanded={expandedId === ev.id}
+            onToggle={() => setExpandedId(expandedId === ev.id ? null : ev.id)}
+            onRsvp={onRsvp}
+            busy={rsvpBusyId === ev.id}
+            onDelete={onDelete}
+            groupProfiles={groupProfiles}
+            onNavigate={onNavigate}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Lijstweergave
+// ============================================================
+function ListView({
+  events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete, groupProfiles, onNavigate,
+}: {
+  events: EventRow[];
+  uid: string;
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+  onRsvp: (ev: EventRow, status: RsvpStatus) => void;
+  rsvpBusyId: string | null;
+  onDelete: (ev: EventRow) => void;
+  groupProfiles: GroupProfiles;
+  onNavigate: (ev: EventRow) => void;
+}) {
+  if (events.length === 0) {
+    return (
+      <div className="py-16 text-center space-y-1.5">
+        <p className="text-sm font-bold text-foreground">Nog geen activiteiten gepland</p>
+        <p className="text-xs text-muted-foreground">Tik op &apos;Nieuw&apos; om er een te plannen.</p>
+      </div>
+    );
+  }
+
+  // groeperen per dag-label voor duidelijke scheiding
+  const groups: { label: string; items: EventRow[] }[] = [];
+  for (const ev of events) {
+    const label = formatDayLabel(ev.start_time);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(ev);
+    else groups.push({ label, items: [ev] });
+  }
+
+  return (
+    <div className="space-y-5">
+      {groups.map((g) => (
+        <div key={g.label} className="space-y-2">
+          <p className="text-xs font-bold text-muted-foreground capitalize px-1">{g.label}</p>
+          <div className="space-y-2">
+            {g.items.map((ev) => (
+              <EventCard
+                key={ev.id}
+                ev={ev}
+                uid={uid}
+                expanded={expandedId === ev.id}
+                onToggle={() => setExpandedId(expandedId === ev.id ? null : ev.id)}
+                onRsvp={onRsvp}
+                busy={rsvpBusyId === ev.id}
+                onDelete={onDelete}
+                groupProfiles={groupProfiles}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// Event kaart (samengevouwen + expand)
+// ============================================================
+function EventCard({
+  ev, uid, expanded, onToggle, onRsvp, busy, onDelete, groupProfiles, onNavigate,
+}: {
+  ev: EventRow;
+  uid: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onRsvp: (ev: EventRow, status: RsvpStatus) => void;
+  busy: boolean;
+  onDelete: (ev: EventRow) => void;
+  groupProfiles: GroupProfiles;
+  onNavigate: (ev: EventRow) => void;
+}) {
+  const myRsvp = ev.event_rsvps.find((r) => r.user_id === uid)?.status ?? null;
+  const going = ev.event_rsvps.filter((r) => r.status === "going");
+  const notGoing = ev.event_rsvps.filter((r) => r.status === "not_going");
+  const multiDay = isMultiDay(ev);
+
+  return (
+    <div className="rounded-2xl bg-container-bg overflow-hidden transition-all">
+      <button onClick={onToggle} className="w-full text-left p-3.5 flex items-start gap-3">
+        <div className="flex flex-col items-center justify-center w-11 shrink-0 pt-0.5">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase">
+            {new Date(ev.start_time).toLocaleDateString("nl-BE", { month: "short" })}
+          </span>
+          <span className="text-lg font-black leading-none">
+            {new Date(ev.start_time).getDate()}
+          </span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-sm truncate">{ev.title}</h3>
+            {multiDay && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-foreground/10 text-muted-foreground shrink-0">
+                meerdaags
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {formatTime(ev.start_time)}
+            {ev.end_time && ` – ${multiDay ? new Date(ev.end_time).toLocaleDateString("nl-BE", { day: "numeric", month: "short" }) + " " : ""}${formatTime(ev.end_time)}`}
+            {ev.has_location && ev.location_name && (
+              <span className="inline-flex items-center gap-0.5 ml-1.5">
+                <MapPin size={10} className="inline -mt-0.5" /> {ev.location_name}
+              </span>
+            )}
           </p>
         </div>
 
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => setShowJoinSheet(true)}
-            className="px-3.5 py-2 bg-neutral-100 text-neutral-800 text-xs font-bold rounded-xl active:scale-95 transition cursor-pointer"
-          >
-            Code invullen
-          </button>
-          <button
-            onClick={() => setShowCreateSheet(true)}
-            className="px-3.5 py-2 bg-btn-bg text-btn-text text-xs font-bold rounded-xl active:scale-95 transition cursor-pointer"
-          >
-            + Nieuwe groep
-          </button>
-        </div>
-      </div>
-
-      {/* GRID */}
-      <div className="space-y-4">
-        <h2 className="text-[11px] font-extrabold text-neutral-400 uppercase tracking-wider px-1">
-          Mijn vriendengroepen ({groupCount})
-        </h2>
-
-        {groups.length === 0 ? (
-          <div className="bg-background rounded-2xl p-8 text-center border border-border/40">
-            <p className="text-sm text-neutral-400 font-bold">
-              Je bent nog geen lid van een actieve vriendengroep.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {groups.map((g) => {
-              const isActive = g.id === activeGroupId;
-
+        {going.length > 0 && (
+          <AvatarGroup className="shrink-0 mt-0.5">
+            {going.slice(0, 3).map((r) => {
+              const profile = groupProfiles[r.user_id];
               return (
-                <div
-                  key={g.id}
-                  onClick={() => handleSelectActiveGroup(g.id)}
-                  className={`border p-5 rounded-2xl shadow-3xs flex flex-col justify-between gap-4 transition-all cursor-pointer relative ${
-                    isActive
-                      ? "bg-neutral-900 text-white border-neutral-900 shadow-md"
-                      : "bg-container-bg border-border hover:border-border text-foreground"
-                  }`}
-                >
-                  {/* active indicator */}
-                  {isActive && (
-                    <div className="absolute top-4 right-4 bg-container-bg/20 p-1 rounded-full text-white">
-                      <Check size={14} strokeWidth={3} />
-                    </div>
-                  )}
-
-                  <div className="space-y-1 pr-6">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-black text-lg tracking-tight">{g.name}</h3>
-                      <span
-                        className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-md ${
-                          isActive
-                            ? "bg-container-bg/10 text-neutral-200"
-                            : "bg-neutral-100 text-neutral-500"
-                        }`}
-                      >
-                        {g.is_protected ? "🔒 Privé" : "🔓 Open"}
-                      </span>
-                    </div>
-
-                    <p
-                      className={`text-[11px] font-medium ${
-                        isActive ? "text-neutral-300" : "text-neutral-400"
-                      }`}
-                    >
-                      Code:{" "}
-                      <code
-                        className={`font-mono font-bold px-1 py-0.5 rounded ${
-                          isActive
-                            ? "bg-container-bg/10 text-white"
-                            : "bg-background text-neutral-700"
-                        }`}
-                      >
-                        {g.join_code}
-                      </code>
-                    </p>
-                  </div>
-
-                  {/* ACTION BAR */}
-                  <div
-                    className="flex items-center justify-between w-full pt-3 border-t border-white/10"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex gap-1.5 flex-wrap">
-                      <button
-                        onClick={() => openMembersList(g)}
-                        className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition cursor-pointer inline-flex items-center gap-1 ${
-                          isActive
-                            ? "bg-container-bg/10 text-white hover:bg-container-bg/20"
-                            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200/70"
-                        }`}
-                      >
-                        <Users size={13} />
-                        Leden
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setSelectedGroup(g);
-                          setEditGroupNameInput(g.name);
-                          setShowEditSheet(true);
-                        }}
-                        className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition cursor-pointer inline-flex items-center gap-1 ${
-                          isActive
-                            ? "bg-container-bg/10 text-white hover:bg-container-bg/20"
-                            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200/70"
-                        }`}
-                      >
-                        <Pencil size={13} />
-                        Bewerk
-                      </button>
-
-                      <button
-                        onClick={() => handleShareCode(g)}
-                        className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition cursor-pointer inline-flex items-center gap-1 ${
-                          isActive
-                            ? "bg-container-bg/10 text-white hover:bg-container-bg/20"
-                            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200/70"
-                        }`}
-                      >
-                        <Share2 size={13} />
-                        Share
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => handleLeaveGroupTrigger(g)}
-                      className="text-[11px] font-bold text-red-500 hover:bg-red-50/10 px-2.5 py-1.5 rounded-xl transition cursor-pointer inline-flex items-center gap-1"
-                    >
-                      <LogOut size={13} />
-                      Verlaat
-                    </button>
-                  </div>
-                </div>
+                <Avatar key={r.user_id} size="sm" title={profile?.full_name ?? undefined}>
+                  {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
+                  <AvatarFallback>
+                    {(profile?.full_name ?? "?").slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               );
             })}
-          </div>
+          </AvatarGroup>
         )}
-      </div>
+      </button>
 
-      {/* SHEET A: CREATE GROUP */}
-      <DragSheet
-        open={showCreateSheet}
-        onClose={() => setShowCreateSheet(false)}
-        title="Groep aanmaken"
-        bottomOffset={SHEET_BOTTOM_OFFSET}
-      >
-        <form onSubmit={handleCreateGroup} className="p-4 space-y-4">
-          <input
-            type="text"
-            placeholder="Groepsnaam"
-            required
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
-          />
+      {expanded && (
+        <div className="px-3.5 pb-3.5 pt-0.5 space-y-3 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+          {ev.description && (
+            <p className="text-xs text-foreground/80 leading-relaxed">{ev.description}</p>
+          )}
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-neutral-400 uppercase px-1">
-              Groepstype
-            </label>
-            <div className="bg-neutral-100 p-1 rounded-xl flex">
-              <button
-                type="button"
-                onClick={() => setIsProtected(false)}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
-                  !isProtected
-                    ? "bg-container-bg text-foreground shadow-3xs"
-                    : "text-neutral-500"
-                }`}
-              >
-                🔓 Open
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsProtected(true)}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
-                  isProtected
-                    ? "bg-container-bg text-foreground shadow-3xs"
-                    : "text-neutral-500"
-                }`}
-              >
-                🔒 Gesloten
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={!userId}
-            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
-          >
-            Maak groep
-          </button>
-        </form>
-      </DragSheet>
-
-      {/* SHEET B: JOIN BY CODE */}
-      <DragSheet
-        open={showJoinSheet}
-        onClose={() => setShowJoinSheet(false)}
-        title="Deelnemen via code"
-        bottomOffset={SHEET_BOTTOM_OFFSET}
-      >
-        <form onSubmit={handleJoinCodeSubmit} className="p-4 space-y-4">
-          <input
-            type="text"
-            placeholder="CODE12"
-            required
-            maxLength={6}
-            value={joinCodeInput}
-            onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-            className="w-full bg-background border p-3.5 rounded-xl text-sm font-black tracking-widest text-center uppercase outline-none text-foreground"
-          />
-          <button
-            type="submit"
-            disabled={!userId}
-            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition disabled:opacity-50"
-          >
-            Deelnemen
-          </button>
-        </form>
-      </DragSheet>
-
-      {/* SHEET C: MEMBERS LIST */}
-      <DragSheet
-        open={showMembersSheet}
-        onClose={() => setShowMembersSheet(false)}
-        title={selectedGroup?.name}
-        subtitle={`${selectedGroupMembers.length} actieve leden`}
-        topOffset="calc(64px + env(safe-area-inset-top))"
-        bottomOffset={SHEET_BOTTOM_OFFSET}
-      >
-        <div className="px-4 py-4 space-y-2">
-          {selectedGroupMembers.map((m) => (
-            <div
-              key={m.user_id}
-              className="flex items-center space-x-3 p-2.5 bg-background rounded-xl"
+          {ev.has_location && ev.location && (
+            <button
+              type="button"
+              onClick={() => onNavigate(ev)}
+              className="flex items-center gap-1.5 text-xs text-primary font-medium active:opacity-60 transition-opacity"
             >
-              <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
-                <Image
-                  src={m.avatar_url}
-                  alt="Avatar"
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-              <p className="text-sm font-bold text-foreground">
-                {m.full_name}
-                {m.user_id === userId && (
-                  <span className="ml-1 text-[9px] font-extrabold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">
-                    Jij
-                  </span>
-                )}
-              </p>
+              <MapPin size={12} /> {ev.location}
+            </button>
+          )}
+          {ev.has_dresscode && ev.dresscode && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Shirt size={12} /> {ev.dresscode}
             </div>
-          ))}
-        </div>
-      </DragSheet>
+          )}
 
-      {/* SHEET D: EDIT GROUP NAME */}
-      <DragSheet
-        open={showEditSheet}
-        onClose={() => setShowEditSheet(false)}
-        title="Groepsnaam wijzigen"
-        bottomOffset={SHEET_BOTTOM_OFFSET}
-      >
-        <form onSubmit={handleEditGroupName} className="p-4 space-y-4">
-          <input
-            type="text"
-            value={editGroupNameInput}
-            onChange={(e) => setEditGroupNameInput(e.target.value)}
-            required
-            className="w-full bg-background border p-3.5 rounded-xl text-xs outline-none text-foreground font-bold"
-          />
-          <button
-            type="submit"
-            className="w-full bg-btn-bg text-btn-text p-3.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer active:scale-98 transition"
-          >
-            Opslaan
-          </button>
-        </form>
-      </DragSheet>
-
-      {/* SHEET E: LEAVE CONFIRM */}
-      {showLeaveConfirmSheet && (
-        <div className="fixed top-0 bottom-20 left-0 right-0 z-[999] w-screen h-screen bg-neutral-900/30 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="bg-container-bg w-full max-w-xs rounded-2xl shadow-2xl text-center overflow-hidden">
-            <div className="p-5 space-y-1">
-              <h3 className="font-black text-foreground text-sm">Groep verlaten?</h3>
-              <p className="text-xs text-neutral-400 leading-normal">
-                Weet je zeker dat je geen lid meer wilt zijn van{" "}
-                {selectedGroup?.name}?
-              </p>
-            </div>
-            <div className="flex flex-col border-t border-border">
-              <button
-                onClick={() => selectedGroup && executeLeave(selectedGroup.id, false)}
-                className="w-full py-3 text-xs font-bold text-red-500 border-b cursor-pointer"
-              >
-                Verlaat groep
-              </button>
-              <button
-                onClick={() => setShowLeaveConfirmSheet(false)}
-                className="w-full py-3 text-xs font-bold text-neutral-800 cursor-pointer"
-              >
-                Annuleer
-              </button>
-            </div>
+          {/* RSVP knoppen: altijd beide zichtbaar, switchable, actieve staat gekleurd */}
+          <div className="flex gap-2 pt-1">
+            <button
+              disabled={busy}
+              onClick={() => myRsvp !== "going" && onRsvp(ev, "going")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
+                myRsvp === "going"
+                  ? "bg-green-500/10 text-green-600 border-green-500/30"
+                  : "bg-background text-foreground border-border"
+              )}
+            >
+              <Check size={13} /> Ik kom
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => myRsvp !== "not_going" && onRsvp(ev, "not_going")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
+                myRsvp === "not_going"
+                  ? "bg-red-500/10 text-red-600 border-red-500/30"
+                  : "bg-background text-foreground border-border"
+              )}
+            >
+              <X size={13} /> Kan niet
+            </button>
           </div>
-        </div>
-      )}
 
-      {/* SHEET F: DELETE LAST GROUP CONFIRM */}
-      {showDeleteConfirm && (
-        <div className="fixed top-0 bottom-20 left-0 right-0 z-[999] w-screen h-screen bg-neutral-900/40 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="bg-container-bg w-full max-w-xs rounded-2xl shadow-2xl text-center overflow-hidden">
-            <div className="p-5 space-y-1">
-              <h3 className="font-black text-foreground text-sm">Groep verwijderen?</h3>
-              <p className="text-xs text-neutral-400 leading-normal">
-                Je bent het laatste lid. Dit verwijdert alle agenda data permanent.
-              </p>
+          {/* Deelnemerslijst: groen = komt, rood + greyed-out = komt niet */}
+          {(going.length > 0 || notGoing.length > 0) && (
+            <div className="flex flex-wrap gap-3 pt-1">
+              {going.map((r) => {
+                const profile = groupProfiles[r.user_id];
+                return (
+                  <div key={r.user_id} className="flex flex-col items-center gap-1 w-12">
+                    <Avatar size="sm" className="ring-2 ring-green-500 ring-offset-2 ring-offset-container-bg">
+                      {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
+                      <AvatarFallback>{(profile?.full_name ?? "?").slice(0, 1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[9px] font-bold text-foreground truncate w-full text-center">
+                      {profile?.full_name?.split(" ")[0] ?? "?"}
+                    </span>
+                  </div>
+                );
+              })}
+              {notGoing.map((r) => {
+                const profile = groupProfiles[r.user_id];
+                return (
+                  <div key={r.user_id} className="flex flex-col items-center gap-1 w-12 opacity-40">
+                    <Avatar size="sm" className="ring-2 ring-red-500 ring-offset-2 ring-offset-container-bg grayscale">
+                      {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
+                      <AvatarFallback>{(profile?.full_name ?? "?").slice(0, 1).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[9px] font-bold text-muted-foreground truncate w-full text-center">
+                      {profile?.full_name?.split(" ")[0] ?? "?"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex flex-col border-t border-border">
-              <button
-                onClick={() => selectedGroup && executeLeave(selectedGroup.id, true)}
-                className="w-full py-3 text-xs font-bold text-red-500 border-b cursor-pointer"
-              >
-                Permanent verwijderen
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="w-full py-3 text-xs font-bold text-neutral-800 cursor-pointer"
-              >
-                Annuleer
-              </button>
-            </div>
-          </div>
+          )}
+
+          {/* Verwijderen: enkel zichtbaar voor de gebruiker die de activiteit aanmaakte */}
+          {ev.created_by === uid && (
+            <button
+              onClick={() => onDelete(ev)}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-destructive bg-destructive/10 active:scale-95 transition-all mt-1"
+            >
+              <Trash2 size={13} /> Activiteit verwijderen
+            </button>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+// ============================================================
+// Create sheet
+// ============================================================
+function CreateEventSheet(props: any) {
+  const {
+    open, onClose,
+    title, setTitle, description, setDescription,
+    startDate, setStartDate, startTime, setStartTime,
+    hasEnd, setHasEnd, endDate, setEndDate, endTime, setEndTime,
+    hasLocation, setHasLocation, locationName, setLocationName, location, setLocation, onLocationSelect,
+    hasDresscode, setHasDresscode, dresscode, setDresscode,
+    formError, submitting, onSubmit,
+  } = props;
+
+  return (
+    <DragSheet
+      open={open}
+      onClose={onClose}
+      title="Nieuwe activiteit"
+      bottomOffset={SHEET_BOTTOM_OFFSET}
+      className="max-h-[85dvh]"
+    >
+      <form onSubmit={onSubmit} className="p-4 space-y-3">
+        <input
+          placeholder="Titel"
+          value={title}
+          onChange={(e: any) => setTitle(e.target.value)}
+          className="w-full bg-background p-3 text-sm rounded-xl outline-none"
+        />
+        <textarea
+          placeholder="Beschrijving (optioneel)"
+          value={description}
+          onChange={(e: any) => setDescription(e.target.value)}
+          className="w-full bg-background p-3 text-sm rounded-xl outline-none resize-none"
+          rows={2}
+        />
+
+        <div>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase px-1 mb-1">Start</p>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)}
+              className="bg-background p-3 text-sm rounded-xl outline-none" />
+            <input type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)}
+              className="bg-background p-3 text-sm rounded-xl outline-none" />
+          </div>
+        </div>
+
+        <ToggleRow label="Eindmoment toevoegen" checked={hasEnd} onChange={setHasEnd} />
+        {hasEnd && (
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase px-1 mb-1">Einde</p>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)}
+                className="bg-background p-3 text-sm rounded-xl outline-none" />
+              <input type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)}
+                className="bg-background p-3 text-sm rounded-xl outline-none" />
+            </div>
+          </div>
+        )}
+
+        <ToggleRow label="Locatie toevoegen" checked={hasLocation} onChange={setHasLocation} />
+        {hasLocation && (
+          <div className="space-y-2">
+            <input placeholder="Naam locatie (bv. Bij Sam)" value={locationName}
+              onChange={(e: any) => setLocationName(e.target.value)}
+              className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
+            <AddressAutocomplete
+              value={location}
+              onChange={setLocation}
+              onSelect={onLocationSelect}
+              placeholder="Adres (kies uit de suggesties)"
+            />
+          </div>
+        )}
+
+        <ToggleRow label="Dresscode toevoegen" checked={hasDresscode} onChange={setHasDresscode} />
+        {hasDresscode && (
+          <input placeholder="Dresscode" value={dresscode}
+            onChange={(e: any) => setDresscode(e.target.value)}
+            className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
+        )}
+
+        {formError && <p className="text-xs text-destructive font-medium">{formError}</p>}
+
+        <button
+          disabled={submitting}
+          className="w-full bg-btn-bg text-btn-text text-sm font-bold py-3 rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
+        >
+          {submitting ? "Aanmaken..." : "Aanmaken"}
+        </button>
+      </form>
+    </DragSheet>
+  );
+}
+
+function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="w-full flex items-center justify-between py-1"
+    >
+      <span className="text-sm font-medium">{label}</span>
+      <span
+        className={cn(
+          "w-10 h-6 rounded-full transition-colors relative",
+          checked ? "bg-btn-bg" : "bg-container-bg"
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 size-5 rounded-full bg-background transition-transform shadow-sm",
+            checked ? "translate-x-4.5 left-0.5" : "translate-x-0 left-0.5"
+          )}
+        />
+      </span>
+    </button>
   );
 }
