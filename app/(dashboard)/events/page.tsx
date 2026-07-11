@@ -9,7 +9,6 @@ import {
   Plus,
   MapPin,
   Shirt,
-  ShoppingBag,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -18,8 +17,10 @@ import {
   Calendar as CalendarIcon,
   List,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback, AvatarGroup } from "@/components/ui/avatar";
 import { DragSheet } from "@/components/ui/drag-sheet";
+import { AddressAutocomplete, type AddressResult } from "@/components/ui/address-autocomplete";
+import { NavigateSheet } from "@/components/ui/navigate-sheet";
 import { cn } from "@/lib/utils";
 
 const BOTTOM_NAV_HEIGHT = 58;
@@ -27,6 +28,13 @@ const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-b
 
 type ViewType = "list" | "month";
 type RsvpStatus = "going" | "not_going";
+
+interface Profile {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+type GroupProfiles = Record<string, Profile>;
 
 interface EventRow {
   id: string;
@@ -38,6 +46,8 @@ interface EventRow {
   has_location: boolean;
   location_name: string | null;
   location: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
   has_dresscode: boolean;
   dresscode: string | null;
   has_bring_list: boolean;
@@ -97,7 +107,7 @@ export default function EventsPage() {
   const activeGroupId = navData?.activeGroup?.id ?? null;
   const userId = navData?.user?.id ?? null;
   const safeGroupId = activeGroupId ?? "";
-  const { events, mutate } = useEventsData(safeGroupId);
+  const { events, groupProfiles, mutate } = useEventsData(safeGroupId);
 
   const [currentView, setCurrentView] = useState<ViewType>("list");
   const [monthCursor, setMonthCursor] = useState(() => startOfDay(new Date()));
@@ -105,6 +115,7 @@ export default function EventsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [rsvpBusyId, setRsvpBusyId] = useState<string | null>(null);
+  const [navigateTarget, setNavigateTarget] = useState<EventRow | null>(null);
 
   // create form state
   const [title, setTitle] = useState("");
@@ -117,9 +128,9 @@ export default function EventsPage() {
   const [hasLocation, setHasLocation] = useState(false);
   const [locationName, setLocationName] = useState("");
   const [location, setLocation] = useState("");
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [hasDresscode, setHasDresscode] = useState(false);
   const [dresscode, setDresscode] = useState("");
-  const [hasBringList, setHasBringList] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -184,9 +195,9 @@ export default function EventsPage() {
     setHasLocation(false);
     setLocationName("");
     setLocation("");
+    setLocationCoords(null);
     setHasDresscode(false);
     setDresscode("");
-    setHasBringList(false);
     setFormError(null);
   }
 
@@ -278,7 +289,9 @@ export default function EventsPage() {
       p_location: hasLocation ? location || null : null,
       p_has_dresscode: hasDresscode,
       p_dresscode: hasDresscode ? dresscode || null : null,
-      p_has_bring_list: hasBringList,
+      p_has_bring_list: false,
+      p_location_lat: hasLocation ? locationCoords?.lat ?? null : null,
+      p_location_lng: hasLocation ? locationCoords?.lng ?? null : null,
     });
 
     setSubmitting(false);
@@ -352,6 +365,8 @@ export default function EventsPage() {
           onRsvp={handleRsvp}
           rsvpBusyId={rsvpBusyId}
           onDelete={handleDeleteEvent}
+          groupProfiles={groupProfiles}
+          onNavigate={setNavigateTarget}
         />
       )}
 
@@ -364,6 +379,8 @@ export default function EventsPage() {
           onRsvp={handleRsvp}
           rsvpBusyId={rsvpBusyId}
           onDelete={handleDeleteEvent}
+          groupProfiles={groupProfiles}
+          onNavigate={setNavigateTarget}
         />
       )}
 
@@ -381,12 +398,20 @@ export default function EventsPage() {
         hasLocation={hasLocation} setHasLocation={setHasLocation}
         locationName={locationName} setLocationName={setLocationName}
         location={location} setLocation={setLocation}
+        onLocationSelect={(r: AddressResult) => setLocationCoords({ lat: r.lat, lng: r.lng })}
         hasDresscode={hasDresscode} setHasDresscode={setHasDresscode}
         dresscode={dresscode} setDresscode={setDresscode}
-        hasBringList={hasBringList} setHasBringList={setHasBringList}
         formError={formError}
         submitting={submitting}
         onSubmit={createEvent}
+      />
+
+      <NavigateSheet
+        open={!!navigateTarget}
+        onClose={() => setNavigateTarget(null)}
+        lat={navigateTarget?.location_lat ?? null}
+        lng={navigateTarget?.location_lng ?? null}
+        address={navigateTarget?.location ?? null}
       />
     </div>
   );
@@ -479,7 +504,7 @@ function MonthView({
 // Dag-detail onder de maandkalender
 // ============================================================
 function DayAgenda({
-  day, events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete,
+  day, events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete, groupProfiles, onNavigate,
 }: {
   day: Date;
   events: EventRow[];
@@ -489,6 +514,8 @@ function DayAgenda({
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   rsvpBusyId: string | null;
   onDelete: (ev: EventRow) => void;
+  groupProfiles: GroupProfiles;
+  onNavigate: (ev: EventRow) => void;
 }) {
   return (
     <div className="space-y-2 pt-1 animate-in fade-in-0 slide-in-from-top-1 duration-150">
@@ -508,6 +535,8 @@ function DayAgenda({
             onRsvp={onRsvp}
             busy={rsvpBusyId === ev.id}
             onDelete={onDelete}
+            groupProfiles={groupProfiles}
+            onNavigate={onNavigate}
           />
         ))
       )}
@@ -519,7 +548,7 @@ function DayAgenda({
 // Lijstweergave
 // ============================================================
 function ListView({
-  events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete,
+  events, uid, expandedId, setExpandedId, onRsvp, rsvpBusyId, onDelete, groupProfiles, onNavigate,
 }: {
   events: EventRow[];
   uid: string;
@@ -528,6 +557,8 @@ function ListView({
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   rsvpBusyId: string | null;
   onDelete: (ev: EventRow) => void;
+  groupProfiles: GroupProfiles;
+  onNavigate: (ev: EventRow) => void;
 }) {
   if (events.length === 0) {
     return (
@@ -563,6 +594,8 @@ function ListView({
                 onRsvp={onRsvp}
                 busy={rsvpBusyId === ev.id}
                 onDelete={onDelete}
+                groupProfiles={groupProfiles}
+                onNavigate={onNavigate}
               />
             ))}
           </div>
@@ -576,7 +609,7 @@ function ListView({
 // Event kaart (samengevouwen + expand)
 // ============================================================
 function EventCard({
-  ev, uid, expanded, onToggle, onRsvp, busy, onDelete,
+  ev, uid, expanded, onToggle, onRsvp, busy, onDelete, groupProfiles, onNavigate,
 }: {
   ev: EventRow;
   uid: string;
@@ -585,6 +618,8 @@ function EventCard({
   onRsvp: (ev: EventRow, status: RsvpStatus) => void;
   busy: boolean;
   onDelete: (ev: EventRow) => void;
+  groupProfiles: GroupProfiles;
+  onNavigate: (ev: EventRow) => void;
 }) {
   const myRsvp = ev.event_rsvps.find((r) => r.user_id === uid)?.status ?? null;
   const going = ev.event_rsvps.filter((r) => r.status === "going");
@@ -625,11 +660,17 @@ function EventCard({
 
         {going.length > 0 && (
           <AvatarGroup className="shrink-0 mt-0.5">
-            {going.slice(0, 3).map((r) => (
-              <Avatar key={r.user_id} size="sm">
-                <AvatarFallback>{r.user_id.slice(0, 1).toUpperCase()}</AvatarFallback>
-              </Avatar>
-            ))}
+            {going.slice(0, 3).map((r) => {
+              const profile = groupProfiles[r.user_id];
+              return (
+                <Avatar key={r.user_id} size="sm" title={profile?.full_name ?? undefined}>
+                  {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
+                  <AvatarFallback>
+                    {(profile?.full_name ?? "?").slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              );
+            })}
           </AvatarGroup>
         )}
       </button>
@@ -641,18 +682,17 @@ function EventCard({
           )}
 
           {ev.has_location && ev.location && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => onNavigate(ev)}
+              className="flex items-center gap-1.5 text-xs text-primary font-medium active:opacity-60 transition-opacity"
+            >
               <MapPin size={12} /> {ev.location}
-            </div>
+            </button>
           )}
           {ev.has_dresscode && ev.dresscode && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Shirt size={12} /> {ev.dresscode}
-            </div>
-          )}
-          {ev.has_bring_list && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ShoppingBag size={12} /> Neem zelf iets mee
             </div>
           )}
 
@@ -720,9 +760,8 @@ function CreateEventSheet(props: any) {
     title, setTitle, description, setDescription,
     startDate, setStartDate, startTime, setStartTime,
     hasEnd, setHasEnd, endDate, setEndDate, endTime, setEndTime,
-    hasLocation, setHasLocation, locationName, setLocationName, location, setLocation,
+    hasLocation, setHasLocation, locationName, setLocationName, location, setLocation, onLocationSelect,
     hasDresscode, setHasDresscode, dresscode, setDresscode,
-    hasBringList, setHasBringList,
     formError, submitting, onSubmit,
   } = props;
 
@@ -749,20 +788,26 @@ function CreateEventSheet(props: any) {
           rows={2}
         />
 
-        <div className="grid grid-cols-2 gap-2">
-          <input type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)}
-            className="bg-background p-3 text-sm rounded-xl outline-none" />
-          <input type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)}
-            className="bg-background p-3 text-sm rounded-xl outline-none" />
+        <div>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase px-1 mb-1">Start</p>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)}
+              className="bg-background p-3 text-sm rounded-xl outline-none" />
+            <input type="time" value={startTime} onChange={(e: any) => setStartTime(e.target.value)}
+              className="bg-background p-3 text-sm rounded-xl outline-none" />
+          </div>
         </div>
 
         <ToggleRow label="Eindmoment toevoegen" checked={hasEnd} onChange={setHasEnd} />
         {hasEnd && (
-          <div className="grid grid-cols-2 gap-2">
-            <input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)}
-              className="bg-background p-3 text-sm rounded-xl outline-none" />
-            <input type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)}
-              className="bg-background p-3 text-sm rounded-xl outline-none" />
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase px-1 mb-1">Einde</p>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)}
+                className="bg-background p-3 text-sm rounded-xl outline-none" />
+              <input type="time" value={endTime} onChange={(e: any) => setEndTime(e.target.value)}
+                className="bg-background p-3 text-sm rounded-xl outline-none" />
+            </div>
           </div>
         )}
 
@@ -772,9 +817,12 @@ function CreateEventSheet(props: any) {
             <input placeholder="Naam locatie (bv. Bij Sam)" value={locationName}
               onChange={(e: any) => setLocationName(e.target.value)}
               className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
-            <input placeholder="Adres" value={location}
-              onChange={(e: any) => setLocation(e.target.value)}
-              className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
+            <AddressAutocomplete
+              value={location}
+              onChange={setLocation}
+              onSelect={onLocationSelect}
+              placeholder="Adres (kies uit de suggesties)"
+            />
           </div>
         )}
 
@@ -784,8 +832,6 @@ function CreateEventSheet(props: any) {
             onChange={(e: any) => setDresscode(e.target.value)}
             className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
         )}
-
-        <ToggleRow label="Breng-lijst inschakelen" checked={hasBringList} onChange={setHasBringList} />
 
         {formError && <p className="text-xs text-destructive font-medium">{formError}</p>}
 
