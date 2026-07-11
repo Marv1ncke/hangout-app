@@ -20,7 +20,11 @@ interface ExpenseRow {
   description: string;
   amount: number;
   created_at: string;
+  expense_payers?: { user_id: string; paid_amount: number }[];
+  expense_shares?: { user_id: string; share_amount: number }[];
 }
+
+type SplitMethod = "equal" | "amount" | "percentage" | "shares";
 
 export default function ExpensesPage() {
   const { data: navData } = useNavData();
@@ -32,13 +36,25 @@ export default function ExpensesPage() {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [paidBy, setPaidBy] = useState(userId || "");
+  const [payerAmounts, setPayerAmounts] = useState<Record<string, string>>({}); // user_id -> bedrag
+  const [splitMethod, setSplitMethod] = useState<SplitMethod>("equal");
+  const [participants, setParticipants] = useState<Record<string, boolean>>({}); // voor "equal": wie deelt mee
+  const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({}); // voor "amount"
+  const [splitPercentages, setSplitPercentages] = useState<Record<string, string>>({}); // voor "percentage"
+  const [splitShares, setSplitShares] = useState<Record<string, string>>({}); // voor "shares"
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (userId && !paidBy) setPaidBy(userId);
-  }, [userId, paidBy]);
+    if (userId && Object.keys(payerAmounts).length === 0 && groupMembers.length > 0) {
+      setPayerAmounts({ [userId]: "" });
+    }
+    if (Object.keys(participants).length === 0 && groupMembers.length > 0) {
+      const all: Record<string, boolean> = {};
+      groupMembers.forEach((m: any) => { all[m.id] = true; });
+      setParticipants(all);
+    }
+  }, [userId, groupMembers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { balances, suggestedTransfers } = useMemo(() => {
     if (groupMembers.length === 0) return { balances: {}, suggestedTransfers: [] as any[] };
@@ -48,13 +64,24 @@ export default function ExpensesPage() {
 
     expenses.forEach((exp: ExpenseRow) => {
       const totalAmount = Number(exp.amount);
-      const payer = exp.paid_by;
-      const share = totalAmount / groupMembers.length;
+      const hasSplitData = exp.expense_payers?.length && exp.expense_shares?.length;
 
-      groupMembers.forEach((m: any) => {
-        if (m.id === payer) netBalances[m.id] += (totalAmount - share);
-        else netBalances[m.id] -= share;
-      });
+      if (hasSplitData) {
+        exp.expense_payers!.forEach((p) => {
+          netBalances[p.user_id] = (netBalances[p.user_id] ?? 0) + Number(p.paid_amount);
+        });
+        exp.expense_shares!.forEach((s) => {
+          netBalances[s.user_id] = (netBalances[s.user_id] ?? 0) - Number(s.share_amount);
+        });
+      } else {
+        // fallback voor oudere rijen zonder shares: gelijk over alle leden
+        const payer = exp.paid_by;
+        const share = totalAmount / groupMembers.length;
+        groupMembers.forEach((m: any) => {
+          if (m.id === payer) netBalances[m.id] += (totalAmount - share);
+          else netBalances[m.id] -= share;
+        });
+      }
     });
 
     const debtors: { id: string; balance: number }[] = [];
@@ -98,57 +125,104 @@ export default function ExpensesPage() {
 
   const allSettled = suggestedTransfers.length === 0;
 
+  const parsedAmount = parseFloat(amount) || 0;
+
+  // Herleidt, ongeacht gekozen methode, tot 1 uniform formaat:
+  // { user_id: bedrag_in_euro }. Dit is wat er uiteindelijk als
+  // expense_shares wordt opgeslagen -- de balansberekening hoeft dus
+  // nooit te weten welke methode gebruikt werd.
+  const computedShares = useMemo((): Record<string, number> => {
+    const result: Record<string, number> = {};
+
+    if (splitMethod === "equal") {
+      const activeIds = groupMembers.filter((m: any) => participants[m.id]).map((m: any) => m.id);
+      if (activeIds.length === 0) return result;
+      const share = parsedAmount / activeIds.length;
+      activeIds.forEach((id: string) => { result[id] = share; });
+    }
+
+    if (splitMethod === "amount") {
+      groupMembers.forEach((m: any) => {
+        const v = parseFloat(splitAmounts[m.id] || "0");
+        if (v > 0) result[m.id] = v;
+      });
+    }
+
+    if (splitMethod === "percentage") {
+      groupMembers.forEach((m: any) => {
+        const pct = parseFloat(splitPercentages[m.id] || "0");
+        if (pct > 0) result[m.id] = (pct / 100) * parsedAmount;
+      });
+    }
+
+    if (splitMethod === "shares") {
+      const totalShares = groupMembers.reduce((sum: number, m: any) => sum + (parseFloat(splitShares[m.id] || "0")), 0);
+      if (totalShares > 0) {
+        groupMembers.forEach((m: any) => {
+          const s = parseFloat(splitShares[m.id] || "0");
+          if (s > 0) result[m.id] = (s / totalShares) * parsedAmount;
+        });
+      }
+    }
+
+    return result;
+  }, [splitMethod, participants, splitAmounts, splitPercentages, splitShares, groupMembers, parsedAmount]);
+
+  const sharesTotal = Object.values(computedShares).reduce((a, b) => a + b, 0);
+  const sharesMatch = parsedAmount > 0 && Math.abs(sharesTotal - parsedAmount) < 0.02;
+
+  const payersTotal = Object.values(payerAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+  const payersMatch = parsedAmount > 0 && Math.abs(payersTotal - parsedAmount) < 0.02;
+
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    if (!description.trim() || !amount || !activeGroupId || !paidBy) return;
+    if (!description.trim() || !amount || !activeGroupId) return;
 
-    const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setFormError("Vul een geldig bedrag groter dan 0 in.");
+      return;
+    }
+    if (!payersMatch) {
+      setFormError(`De betalers (€${payersTotal.toFixed(2)}) moeten samen optellen tot het totaalbedrag (€${parsedAmount.toFixed(2)}).`);
+      return;
+    }
+    if (!sharesMatch) {
+      setFormError(`De verdeling (€${sharesTotal.toFixed(2)}) moet optellen tot het totaalbedrag (€${parsedAmount.toFixed(2)}).`);
       return;
     }
 
     setSubmitting(true);
 
-    const previous = expenses;
-    const optimisticId = `optimistic-${Date.now()}`;
-    mutateExpenses(
-      (old: any) => ({
-        ...old,
-        expenses: [
-          {
-            id: optimisticId,
-            group_id: activeGroupId,
-            event_id: null,
-            description: description.trim(),
-            amount: parsedAmount,
-            paid_by: paidBy,
-            created_at: new Date().toISOString(),
-          },
-          ...(old?.expenses || []),
-        ],
-      }),
-      false
-    );
+    const payersPayload = Object.entries(payerAmounts)
+      .filter(([, v]) => parseFloat(v) > 0)
+      .map(([user_id, v]) => ({ user_id, amount: Math.round(parseFloat(v) * 100) / 100 }));
 
-    const { error } = await supabase.from("expenses").insert({
-      group_id: activeGroupId,
-      description: description.trim(),
-      amount: parsedAmount,
-      paid_by: paidBy,
+    const sharesPayload = Object.entries(computedShares)
+      .map(([user_id, v]) => ({ user_id, amount: Math.round(v * 100) / 100 }));
+
+    const { error } = await supabase.rpc("create_expense_atomic", {
+      p_group_id: activeGroupId,
+      p_description: description.trim(),
+      p_amount: parsedAmount,
+      p_event_id: null,
+      p_payers: payersPayload,
+      p_shares: sharesPayload,
     });
 
     setSubmitting(false);
 
     if (error) {
-      mutateExpenses(previous, false);
       setFormError(error.message);
       return;
     }
 
     setDescription("");
     setAmount("");
+    setSplitAmounts({});
+    setSplitPercentages({});
+    setSplitShares({});
+    setSplitMethod("equal");
     setShowAddSheet(false);
     mutateExpenses();
   }
@@ -293,6 +367,12 @@ export default function ExpensesPage() {
             {expenses.map((exp: ExpenseRow) => {
               const payer = groupMembers.find((m: any) => m.id === exp.paid_by);
               const isMine = exp.paid_by === userId;
+              const payerNames = exp.expense_payers && exp.expense_payers.length > 1
+                ? exp.expense_payers
+                    .map((p) => groupMembers.find((m: any) => m.id === p.user_id)?.full_name)
+                    .filter(Boolean)
+                    .join(", ")
+                : payer?.full_name ?? "Onbekend";
               return (
                 <div
                   key={exp.id}
@@ -300,8 +380,8 @@ export default function ExpensesPage() {
                 >
                   <div className="min-w-0">
                     <p className="text-xs font-black text-foreground truncate">{exp.description}</p>
-                    <p className="text-[10px] text-neutral-400 font-bold mt-0.5">
-                      Betaald door {payer ? payer.full_name : "Onbekend"}
+                    <p className="text-[10px] text-neutral-400 font-bold mt-0.5 truncate">
+                      Betaald door {payerNames}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -330,8 +410,9 @@ export default function ExpensesPage() {
         onClose={() => setShowAddSheet(false)}
         title="Uitgave toevoegen"
         bottomOffset={SHEET_BOTTOM_OFFSET}
+        className="max-h-[85dvh]"
       >
-        <form onSubmit={handleAddExpense} className="p-4 space-y-3">
+        <form onSubmit={handleAddExpense} className="p-4 space-y-4">
           <div>
             <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Beschrijving</label>
             <input
@@ -361,17 +442,123 @@ export default function ExpensesPage() {
             </div>
           </div>
 
+          {/* BETALERS: meerdere personen kunnen samen betaald hebben */}
           <div>
-            <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Wie heeft betaald?</label>
-            <select
-              value={paidBy}
-              onChange={(e) => setPaidBy(e.target.value)}
-              className="w-full bg-background border border-border p-2.5 rounded-xl text-xs outline-none font-bold text-foreground mt-1"
-            >
+            <div className="flex items-center justify-between px-1">
+              <label className="text-[9px] font-extrabold uppercase text-neutral-400">Wie betaalde?</label>
+              <span className={`text-[9px] font-bold ${payersMatch ? "text-green-500" : "text-neutral-400"}`}>
+                €{payersTotal.toFixed(2)} / €{parsedAmount.toFixed(2)}
+              </span>
+            </div>
+            <div className="space-y-1.5 mt-1">
               {groupMembers.map((m: any) => (
-                <option key={m.id} value={m.id}>{m.full_name}</option>
+                <div key={m.id} className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground flex-1 truncate">{m.full_name}</span>
+                  <div className="relative w-24">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-neutral-400">€</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={payerAmounts[m.id] ?? ""}
+                      onChange={(e) => setPayerAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      className="w-full bg-background border border-border pl-6 pr-2 py-1.5 rounded-lg text-xs font-bold text-foreground outline-none"
+                    />
+                  </div>
+                </div>
               ))}
-            </select>
+            </div>
+          </div>
+
+          {/* SPLIT-METHODE */}
+          <div>
+            <label className="text-[9px] font-extrabold uppercase text-neutral-400 px-1">Hoe verdelen?</label>
+            <div className="grid grid-cols-4 gap-1 bg-neutral-100 dark:bg-neutral-900 p-1 rounded-xl mt-1">
+              {([
+                ["equal", "Gelijk"],
+                ["amount", "Bedrag"],
+                ["percentage", "%"],
+                ["shares", "Aandelen"],
+              ] as [SplitMethod, string][]).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSplitMethod(key)}
+                  className={`py-1.5 text-[10px] font-bold rounded-lg transition ${
+                    splitMethod === key ? "bg-container-bg text-foreground shadow-sm" : "text-neutral-500"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-1.5 mt-2">
+              {splitMethod === "equal" && groupMembers.map((m: any) => (
+                <label key={m.id} className="flex items-center gap-2 py-0.5">
+                  <input
+                    type="checkbox"
+                    checked={!!participants[m.id]}
+                    onChange={(e) => setParticipants((prev) => ({ ...prev, [m.id]: e.target.checked }))}
+                    className="size-4 accent-btn-bg"
+                  />
+                  <span className="text-xs font-bold text-foreground flex-1">{m.full_name}</span>
+                  {computedShares[m.id] > 0 && (
+                    <span className="text-[10px] font-bold text-neutral-400">€{computedShares[m.id].toFixed(2)}</span>
+                  )}
+                </label>
+              ))}
+
+              {splitMethod === "amount" && groupMembers.map((m: any) => (
+                <div key={m.id} className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground flex-1 truncate">{m.full_name}</span>
+                  <div className="relative w-24">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-neutral-400">€</span>
+                    <input
+                      type="number" step="0.01" min="0" placeholder="0.00"
+                      value={splitAmounts[m.id] ?? ""}
+                      onChange={(e) => setSplitAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      className="w-full bg-background border border-border pl-6 pr-2 py-1.5 rounded-lg text-xs font-bold text-foreground outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {splitMethod === "percentage" && groupMembers.map((m: any) => (
+                <div key={m.id} className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground flex-1 truncate">{m.full_name}</span>
+                  <div className="relative w-20">
+                    <input
+                      type="number" step="1" min="0" max="100" placeholder="0"
+                      value={splitPercentages[m.id] ?? ""}
+                      onChange={(e) => setSplitPercentages((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                      className="w-full bg-background border border-border pl-2 pr-6 py-1.5 rounded-lg text-xs font-bold text-foreground outline-none"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-neutral-400">%</span>
+                  </div>
+                </div>
+              ))}
+
+              {splitMethod === "shares" && groupMembers.map((m: any) => (
+                <div key={m.id} className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground flex-1 truncate">{m.full_name}</span>
+                  <input
+                    type="number" step="1" min="0" placeholder="0"
+                    value={splitShares[m.id] ?? ""}
+                    onChange={(e) => setSplitShares((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                    className="w-20 bg-background border border-border px-2 py-1.5 rounded-lg text-xs font-bold text-foreground outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between px-1 mt-2">
+              <span className="text-[9px] font-extrabold uppercase text-neutral-400">Verdeling</span>
+              <span className={`text-[9px] font-bold ${sharesMatch ? "text-green-500" : "text-neutral-400"}`}>
+                €{sharesTotal.toFixed(2)} / €{parsedAmount.toFixed(2)}
+              </span>
+            </div>
           </div>
 
           {formError && <p className="text-xs text-destructive font-medium">{formError}</p>}

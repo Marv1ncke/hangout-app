@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 
   const { data: expenses, error } = await supabase
     .from("expenses")
-    .select("*")
+    .select("*, expense_payers(user_id, paid_amount), expense_shares(user_id, share_amount)")
     .eq("group_id", groupId)
     .order("created_at", { ascending: false });
 
