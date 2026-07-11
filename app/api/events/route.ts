@@ -1,11 +1,7 @@
+// app/api/events/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Deze app bewaart de Supabase-sessie in localStorage (zie lib/supabase/client.ts),
-// niet in cookies. Server routes moeten daarom het access-token expliciet uit de
-// Authorization-header lezen (meegestuurd door de globale SWR-fetcher in
-// AppProviders.tsx) in plaats van via cookies te werken -- anders draait de query
-// altijd als de anonieme rol, die geen rechten heeft, met "permission denied" tot gevolg.
 function getSupabaseForRequest(request: Request) {
   const authHeader = request.headers.get("authorization") ?? "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
@@ -28,10 +24,11 @@ function getSupabaseForRequest(request: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const groupId = searchParams.get("groupId");
-  if (!groupId) return NextResponse.json([], { status: 400 });
+  if (!groupId) return NextResponse.json({ events: [], groupProfiles: {} }, { status: 400 });
 
   const supabase = getSupabaseForRequest(request);
 
+  // Veilige opvraag van groepsleden
   const { data: members } = await supabase
     .from("group_members")
     .select("user_id, profiles(id, full_name, avatar_url)")
@@ -43,6 +40,7 @@ export async function GET(request: Request) {
     if (m.profiles) profilesMap[m.profiles.id] = m.profiles;
   });
 
+  // Hoofdquery voor events incl. RSVPs
   const { data: events, error: eventsError } = await supabase
     .from("events")
     .select("*, event_rsvps(user_id, status)")
@@ -65,8 +63,6 @@ export async function GET(request: Request) {
       );
     }
 
-    // Fallback events hebben geen rsvps kunnen ophalen (join faalde) -> haal
-    // ze apart op zodat RSVP-data nooit stil verdwijnt uit de UI.
     const eventIds = (eventsOnly ?? []).map((e) => e.id);
     const { data: rsvpRows } = eventIds.length
       ? await supabase.from("event_rsvps").select("event_id, user_id, status").in("event_id", eventIds)
@@ -83,5 +79,6 @@ export async function GET(request: Request) {
     );
   }
 
+  // Zorg dat we ALTIJD het object-formaat { events: [], groupProfiles: {} } teruggeven
   return NextResponse.json({ events: events ?? [], groupProfiles: profilesMap });
 }

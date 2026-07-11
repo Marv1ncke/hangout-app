@@ -1,3 +1,4 @@
+// components/providers/AppProviders.tsx
 "use client";
 
 import React from "react";
@@ -17,7 +18,13 @@ const fetcher = async (url: string) => {
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <SWRConfig value={{ fetcher }}>
+    <SWRConfig 
+      value={{ 
+        fetcher,
+        revalidateOnFocus: false, // Voorkom herladen bij focus/klik wissels
+        revalidateOnReconnect: false 
+      }}
+    >
       {children}
     </SWRConfig>
   );
