@@ -6,6 +6,7 @@ import { Link, useTransitionRouter as useRouter } from "next-view-transitions";
 import { supabase } from "@/lib/supabase/client";
 import { Check, X, Loader2 } from "lucide-react";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { InstallPrompt } from "@/components/ui/install-prompt";
 
 type Status = "verifying" | "success" | "error";
 
@@ -37,7 +38,6 @@ function ConfirmResultInner() {
       }
 
       setStatus("success");
-      setTimeout(() => router.replace("/events"), 1800);
     }
     run();
   }, [searchParams, router]);
@@ -61,7 +61,18 @@ function ConfirmResultInner() {
               <Check size={22} className="text-green-600" strokeWidth={2.5} />
             </div>
             <h1 className="text-xl font-black tracking-tight text-foreground">Account bevestigd!</h1>
-            <p className="mt-1.5 text-sm text-neutral-500">Je wordt automatisch doorgestuurd naar je agenda...</p>
+            <p className="mt-1.5 mb-5 text-sm text-neutral-500">Je account is klaar. Nog één ding voor de beste ervaring:</p>
+
+            <div className="text-left">
+              <InstallPrompt onClose={() => router.replace("/events")} />
+            </div>
+
+            <button
+              onClick={() => router.replace("/events")}
+              className="mt-4 w-full rounded-xl bg-btn-bg text-btn-text px-4 py-3 text-sm font-bold active:scale-[0.98] transition-transform"
+            >
+              Naar mijn agenda
+            </button>
           </>
         )}
 
