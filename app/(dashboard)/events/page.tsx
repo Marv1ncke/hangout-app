@@ -171,7 +171,11 @@ export default function EventsPage() {
   );
 
   if (navData === undefined) {
-    return <div className="min-h-[50vh]" />;
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="size-8 rounded-full border-2 border-border border-t-foreground animate-spin" />
+      </div>
+    );
   }
   if (!activeGroupId) {
     return (

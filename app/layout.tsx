@@ -2,7 +2,6 @@ import React from "react";
 import { Metadata, Viewport } from "next";
 import { ViewTransitions } from "next-view-transitions";
 import NavigationLayout from "@/components/NavigationLayout";
-import InstallBanner from "@/components/InstallBanner";
 import AppBadgeRegistry from "@/components/AppBadgeRegistry";
 import PushNotificationRegistry from "@/components/providers/PushNotificationRegistry";
 import { AppProviders } from "../components/providers/AppProviders";
@@ -78,7 +77,6 @@ export default function RootLayout({
                 <AppRegistry />
                 <NavigationLayout>
                   {children}
-                  <InstallBanner />
                   <AppBadgeRegistry />
                   <PushNotificationRegistry />
                 </NavigationLayout>
