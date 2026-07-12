@@ -758,7 +758,7 @@ function EventCard({
                   title={profile?.full_name ?? undefined}
                   className={cn(
                     "ring-2 ring-offset-1 ring-offset-container-bg",
-                    isGoing ? "ring-green-500" : "ring-red-500 grayscale opacity-60"
+                    isGoing ? "ring-green-500" : "ring-red-900/60 grayscale opacity-70"
                   )}
                 >
                   {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
@@ -845,7 +845,7 @@ function EventCard({
                 const profile = groupProfiles[r.user_id];
                 return (
                   <div key={r.user_id} className="flex flex-col items-center gap-1 w-12 opacity-40">
-                    <Avatar size="sm" className="ring-2 ring-red-500 ring-offset-2 ring-offset-container-bg grayscale">
+                    <Avatar size="sm" className="ring-2 ring-red-900/60 ring-offset-2 ring-offset-container-bg grayscale opacity-70">
                       {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name ?? ""} />}
                       <AvatarFallback>{(profile?.full_name ?? "?").slice(0, 1).toUpperCase()}</AvatarFallback>
                     </Avatar>
@@ -1004,7 +1004,7 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
       >
         <span
           className={cn(
-            "absolute top-0.5 size-5 rounded-full bg-background transition-transform shadow-sm",
+            "absolute top-0.5 size-5 rounded-full bg-white ring-1 ring-black/5 transition-transform shadow-sm",
             checked ? "translate-x-4.5 left-0.5" : "translate-x-0 left-0.5"
           )}
         />
