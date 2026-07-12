@@ -8,7 +8,6 @@ import { supabase } from "@/lib/supabase/client";
 import { useNavData } from "../../../hooks/useNavData";
 import HapticButton from "@/components/HapticButton";
 import { Type, Sun, Moon, Laptop, User, Shield, Info } from "lucide-react";
-import { InstallPromptReopenButton } from "@/components/ui/install-prompt";
 
 const AVAILABLE_FONTS = [
   { id: "inherit", name: "Systeem Standaard", css: "system-ui, sans-serif" },
@@ -180,7 +179,7 @@ export default function ProfilePage() {
       </div>
 
       <form onSubmit={saveProfile} className="space-y-6">
-        
+
         {/* MIJN IDENTITEIT */}
         <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-5">
           <div className="flex items-center gap-2 text-neutral-400">
@@ -237,9 +236,29 @@ export default function ProfilePage() {
               required
             />
           </div>
-        </div>
 
-        {/* INTERFACE */}
+          {statusMessage && (
+            <div className={`rounded-xl px-4 py-3 text-xs font-bold ${
+              statusMessage.type === "success" 
+                ? "bg-green-500/10 text-green-500 border border-green-500/20" 
+                : "bg-red-500/10 text-red-500 border border-red-500/20"
+            }`}>
+              {statusMessage.text}
+            </div>
+          )}
+
+          <HapticButton
+            type="submit"
+            disabled={saving || uploading}
+            className="w-full rounded-xl bg-btn-bg px-4 py-3.5 text-btn-text text-xs font-bold disabled:opacity-40 transition-all hover:bg-btn-hover"
+          >
+            {saving ? "Opslaan..." : "Wijzigingen Opslaan"}
+          </HapticButton>
+        </div>
+      </form>
+
+      {/* INTERFACE (past direct toe, geen opslaan nodig) */}
+      <div className="space-y-6">
         <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-5">
           
           {/* THEMA */}
@@ -295,25 +314,7 @@ export default function ProfilePage() {
           </div>
 
         </div>
-
-        {statusMessage && (
-          <div className={`rounded-xl px-4 py-3 text-xs font-bold ${
-            statusMessage.type === "success" 
-              ? "bg-green-500/10 text-green-500 border border-green-500/20" 
-              : "bg-red-500/10 text-red-500 border border-red-500/20"
-          }`}>
-            {statusMessage.text}
-          </div>
-        )}
-
-        <HapticButton
-          type="submit"
-          disabled={saving || uploading}
-          className="w-full rounded-xl bg-btn-bg px-4 py-3.5 text-btn-text text-xs font-bold disabled:opacity-40 transition-all hover:bg-btn-hover"
-        >
-          {saving ? "Opslaan..." : "Wijzigingen Opslaan"}
-        </HapticButton>
-      </form>
+      </div>
 
       {/* APPLICATIE INFO ROW */}
       <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-4">
@@ -328,7 +329,6 @@ export default function ProfilePage() {
           <span className="text-foreground">Bekijk info & updates</span>
           <Info size={16} className="text-neutral-400" />
         </Link>
-        <InstallPromptReopenButton />
       </div>
 
       <div className="bg-container-bg rounded-2xl p-5 border border-border space-y-4">

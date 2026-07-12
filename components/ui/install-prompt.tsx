@@ -264,7 +264,7 @@ export function InstallPrompt({ forceOpen, onClose }: { forceOpen?: boolean; onC
 // (bv. in profiel-pagina), zoals de spec vereist.
 // ============================================================
 
-export function InstallPromptReopenButton() {
+export function InstallPromptReopenButton({ compact }: { compact?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<Platform | null>(null);
 
@@ -273,6 +273,25 @@ export function InstallPromptReopenButton() {
   }, []);
 
   if (!platform || platform === "standalone" || platform === "desktop") return null;
+
+  if (compact) {
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-label="Installeer als app"
+          className="p-2 rounded-full text-foreground active:scale-90 transition-transform"
+        >
+          <Smartphone size={18} />
+        </button>
+        {open && (
+          <div className="absolute right-0 top-full mt-2 w-72 z-50 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+            <InstallPrompt forceOpen onClose={() => setOpen(false)} />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>

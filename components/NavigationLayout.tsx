@@ -9,6 +9,7 @@ import { Link } from "next-view-transitions";
 import { Calendar, Users, CreditCard, Bell, ChevronDown, Check } from "lucide-react";
 import { useNavData } from "@/hooks/useNavData";
 import { useSWRConfig } from "swr";
+import { InstallPromptReopenButton } from "@/components/ui/install-prompt";
 
 interface NavigationLayoutProps {
   children: React.ReactNode;
@@ -169,6 +170,9 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
             className={`text-foreground transition-transform duration-200 ${showGroupSelector ? "rotate-180" : ""}`}
           />
         </button>
+        <div className="mt-2">
+          <InstallPromptReopenButton compact />
+        </div>
       </header>
 
       {/* GROUP SELECTOR */}
