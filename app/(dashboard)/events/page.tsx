@@ -28,7 +28,7 @@ const BOTTOM_NAV_HEIGHT = 49; // moet matchen met NavigationLayout.tsx nav-hoogt
 const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
 
 type ViewType = "list" | "month";
-type RsvpStatus = "going" | "not_going";
+type RsvpStatus = "going" | "declined";
 
 interface Profile {
   id: string;
@@ -279,7 +279,7 @@ export default function EventsPage() {
       // GEEN mutate()-revalidatie meer hier: de optimistic update hierboven
       // is al correct (we weten exact wat er in de DB staat, wij hebben het
       // net geschreven). Een herfetch via de GET-route met de event_rsvps-
-      // join bleek bij "not_going" soms een lege/foute set terug te geven,
+      // join bleek bij "declined" soms een lege/foute set terug te geven,
       // wat de hele lijst leegmaakte in de UI. Simpelweg niet meer herladen
       // na een geslaagde write elimineert dat volledig.
     } catch (err) {
@@ -711,7 +711,7 @@ function EventCard({
 }) {
   const myRsvp = ev.event_rsvps.find((r) => r.user_id === uid)?.status ?? null;
   const going = ev.event_rsvps.filter((r) => r.status === "going");
-  const notGoing = ev.event_rsvps.filter((r) => r.status === "not_going");
+  const notGoing = ev.event_rsvps.filter((r) => r.status === "declined");
   const multiDay = isMultiDay(ev);
 
   return (
@@ -811,10 +811,10 @@ function EventCard({
               </button>
               <button
                 disabled={busy}
-                onClick={() => myRsvp !== "not_going" && onRsvp(ev, "not_going")}
+                onClick={() => myRsvp !== "declined" && onRsvp(ev, "declined")}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border",
-                  myRsvp === "not_going"
+                  myRsvp === "declined"
                     ? "bg-red-500/10 text-red-600 border-red-500/30"
                     : "bg-background text-foreground border-border"
                 )}
