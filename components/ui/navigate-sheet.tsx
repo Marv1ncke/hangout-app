@@ -2,6 +2,7 @@
 
 import React from "react";
 import { DragSheet } from "@/components/ui/drag-sheet";
+import { MapPinned, Navigation } from "lucide-react";
 
 const BOTTOM_NAV_HEIGHT = 49; // moet matchen met NavigationLayout.tsx nav-hoogte
 const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
@@ -68,7 +69,7 @@ export function NavigateSheet({ open, onClose, lat, lng, address }: Props) {
           onClick={openGoogleMaps}
           className="w-full flex items-center gap-3 p-3 rounded-xl bg-background active:scale-[0.98] transition-transform"
         >
-          <span className="text-xl">🗺️</span>
+          <MapPinned size={20} className="text-foreground" />
           <span className="text-sm font-bold text-foreground">Google Maps</span>
         </button>
 
@@ -76,7 +77,7 @@ export function NavigateSheet({ open, onClose, lat, lng, address }: Props) {
           onClick={openWaze}
           className="w-full flex items-center gap-3 p-3 rounded-xl bg-background active:scale-[0.98] transition-transform"
         >
-          <span className="text-xl">🚗</span>
+          <Navigation size={20} className="text-foreground" />
           <span className="text-sm font-bold text-foreground">Waze</span>
         </button>
       </div>

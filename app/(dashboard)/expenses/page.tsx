@@ -568,7 +568,7 @@ export default function ExpensesPage() {
             disabled={submitting}
             className="w-full bg-btn-bg text-btn-text p-3 rounded-xl text-xs font-bold active:scale-98 transition mt-2 disabled:opacity-50"
           >
-            {submitting ? "Bezig..." : "Kosten splitsen 💸"}
+            {submitting ? "Bezig..." : "Kosten splitsen"}
           </button>
         </form>
       </DragSheet>

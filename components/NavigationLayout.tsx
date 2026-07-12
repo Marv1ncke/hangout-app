@@ -10,6 +10,7 @@ import { Calendar, Users, CreditCard, Bell, ChevronDown, Check } from "lucide-re
 import { useNavData } from "@/hooks/useNavData";
 import { useSWRConfig } from "swr";
 import { InstallPromptReopenButton } from "@/components/ui/install-prompt";
+import { useToast } from "@/components/providers/ToastProvider";
 
 interface NavigationLayoutProps {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   // event meer nodig als los sync-mechanisme.
   const { data: navData, mutate: mutateNav } = useNavData();
   const { mutate: globalMutate } = useSWRConfig();
+  const { showToast } = useToast();
   const [pendingCount, setPendingCount] = useState(0);
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
@@ -82,6 +84,8 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
   async function handleGroupSwitch(groupId: string) {
     if (!navData?.user?.id) return;
 
+    const newGroupName = navData?.groups?.find((g: any) => g.id === groupId)?.name ?? "groep";
+
     // Optimistic update: nav-balk wisselt direct, geen wachttijd.
     mutateNav(
       (old: any) => ({
@@ -92,6 +96,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
       false
     );
     setShowGroupSelector(false);
+    showToast(`Gewisseld naar ${newGroupName}`, "success");
 
     const { error } = await supabase
       .from("profiles")
@@ -158,31 +163,37 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
 
       {/* MOBILE HEADER */}
       <header className="native-header flex items-center justify-between px-4 md:hidden select-none">
-        <button
-          onClick={() => setShowGroupSelector(!showGroupSelector)}
-          className="flex items-center space-x-1.5 active:scale-95 transition mt-2"
-        >
-          <span className="text-base font-black tracking-tight text-foreground">
+        {userGroups.length > 1 ? (
+          <button
+            onClick={() => setShowGroupSelector(!showGroupSelector)}
+            className="flex items-center space-x-1.5 active:scale-95 transition mt-2"
+          >
+            <span className="text-base font-black tracking-tight text-foreground">
+              {activeGroup ? activeGroup.name : "Hangout"}
+            </span>
+            <ChevronDown
+              size={14}
+              className={`text-foreground transition-transform duration-200 ${showGroupSelector ? "rotate-180" : ""}`}
+            />
+          </button>
+        ) : (
+          <span className="text-base font-black tracking-tight text-foreground mt-2">
             {activeGroup ? activeGroup.name : "Hangout"}
           </span>
-          <ChevronDown
-            size={14}
-            className={`text-foreground transition-transform duration-200 ${showGroupSelector ? "rotate-180" : ""}`}
-          />
-        </button>
+        )}
         <div className="mt-2">
           <InstallPromptReopenButton compact />
         </div>
       </header>
 
       {/* GROUP SELECTOR */}
-      {showGroupSelector && (
+      {showGroupSelector && userGroups.length > 1 && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div
-            className="absolute inset-0 bg-black/10 backdrop-blur-xs"
+            className="absolute inset-0 bg-black/10 backdrop-blur-xs animate-in fade-in-0 duration-200"
             onClick={() => setShowGroupSelector(false)}
           />
-          <div className="absolute inset-x-0 top-[70px] bg-container-bg border-b border-border p-3 space-y-1 max-h-[60vh] overflow-y-auto">
+          <div className="absolute inset-x-0 top-[70px] mx-3 rounded-2xl backdrop-blur-xl bg-container-bg/80 border border-white/10 shadow-lg p-3 space-y-1 max-h-[60vh] overflow-y-auto animate-in fade-in-0 slide-in-from-top-3 duration-200 ease-out">
             {userGroups.length === 0 && (
               <p className="px-4 py-3 text-xs font-bold text-muted-foreground">Je bent nog in geen enkele groep.</p>
             )}

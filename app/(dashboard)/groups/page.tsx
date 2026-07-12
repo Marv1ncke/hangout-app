@@ -10,6 +10,7 @@ import { mutate } from "swr";
 import { Check, Share2, Copy, Users, Pencil, LogOut, X } from "lucide-react";
 import { useGroupMembers } from "../../../hooks/useNavData"; 
 import { DragSheet } from "@/components/ui/drag-sheet";
+import { useToast } from "@/components/providers/ToastProvider";
 
 interface Group {
   id: string;
@@ -51,7 +52,7 @@ export default function GroupsPage() {
 
   // UI
   const [activeFont, setActiveFont] = useState("inherit");
-  const [toast, setToast] = useState<{ message: string; sub?: string } | null>(null);
+  const { showToast: showGlobalToast } = useToast();
 
   // Sheets / dialogs
   const [showCreateSheet, setShowCreateSheet] = useState(false);
@@ -92,11 +93,7 @@ export default function GroupsPage() {
   const SHEET_BOTTOM_OFFSET = `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))`;
 
   function showNotification(message: string, sub?: string) {
-    setToast({ message, sub });
-    window.clearTimeout((showNotification as any)._timer);
-    (showNotification as any)._timer = window.setTimeout(() => {
-      setToast(null);
-    }, 3500);
+    showGlobalToast(message, "info", sub);
   }
 
   useEffect(() => {
@@ -181,8 +178,6 @@ export default function GroupsPage() {
       }),
       false
     );
-
-    showNotification("Werkruimte gewisseld ✨");
 
     const { error } = await supabase
       .from("profiles")
@@ -276,7 +271,7 @@ export default function GroupsPage() {
 
     if (rpcError) {
       console.error("join_group_atomic error:", rpcError);
-      showNotification("Code niet gevonden 🔍", rpcError.message || "Controleer de code en probeer opnieuw.");
+      showNotification("Code niet gevonden", rpcError.message || "Controleer de code en probeer opnieuw.");
       return;
     }
 
@@ -285,7 +280,7 @@ export default function GroupsPage() {
 
     if (result.already_member) {
       showNotification(
-        status === "pending" ? "Je verzoek staat al open 📩" : "Je zit al in deze groep"
+        status === "pending" ? "Je verzoek staat al open" : "Je zit al in deze groep"
       );
       setJoinCodeInput("");
       setShowJoinSheet(false);
@@ -295,7 +290,7 @@ export default function GroupsPage() {
 
     if (status === "pending") {
       showNotification(
-        "Verzoek verzonden 📩",
+        "Verzoek verzonden",
         `Wacht tot leden van ${targetGroup.name} je accepteren.`
       );
       setJoinCodeInput("");
@@ -303,7 +298,7 @@ export default function GroupsPage() {
       return;
     }
 
-    showNotification("Groep toegevoegd! ✨", `Je bent nu lid van ${targetGroup.name}`);
+    showNotification("Groep toegevoegd!", `Je bent nu lid van ${targetGroup.name}`);
     setJoinCodeInput("");
     setShowJoinSheet(false);
     await forceNavRefresh();
@@ -376,7 +371,7 @@ export default function GroupsPage() {
     );
 
     setShowEditSheet(false);
-    showNotification("Groepsnaam bijgewerkt 📝");
+    showNotification("Groepsnaam bijgewerkt");
 
     const { error } = await supabase
       .from("groups")
@@ -439,9 +434,9 @@ export default function GroupsPage() {
     );
 
     if (deleteEntireGroup) {
-      showNotification("Groep definitief verwijderd 🗑️");
+      showNotification("Groep definitief verwijderd");
     } else {
-      showNotification("Groep verlaten 🚶‍♂️");
+      showNotification("Groep verlaten");
     }
 
     setShowDeleteConfirm(false);
@@ -476,16 +471,16 @@ export default function GroupsPage() {
           title: `Groep: ${group.name}`,
           text: `Join onze groep "${group.name}" met code: ${code}`,
         });
-        showNotification("Uitnodiging gedeeld ✨");
+        showNotification("Uitnodiging gedeeld");
         return;
       }
 
       await navigator.clipboard.writeText(code);
-      showNotification("Code gekopieerd 📋", code);
+      showNotification("Code gekopieerd", code);
     } catch {
       try {
         await navigator.clipboard.writeText(code);
-        showNotification("Code gekopieerd 📋", code);
+        showNotification("Code gekopieerd", code);
       } catch {
         showNotification("Kon code niet delen", code);
       }
@@ -500,26 +495,6 @@ export default function GroupsPage() {
       style={{ fontFamily: activeFont }}
       className="space-y-8 relative min-h-screen pb-20 select-none animate-in fade-in"
     >
-      {/* FLOATING TOAST */}
-      {toast && (
-        <div className="fixed bottom-20 left-4 right-4 z-[10000] flex justify-center pointer-events-none">
-          <div className="bg-neutral-900/95 border border-white/10 text-white w-full max-w-sm rounded-2xl p-3.5 shadow-2xl backdrop-blur-xl flex items-center space-x-3 pointer-events-auto">
-            <div className="bg-container-bg/10 h-8 w-8 rounded-full flex items-center justify-center text-sm shrink-0">
-              💬
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold tracking-tight text-neutral-50">
-                {toast.message}
-              </p>
-              {toast.sub && (
-                <p className="text-[10px] text-neutral-400 mt-0.5 truncate">
-                  {toast.sub}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">

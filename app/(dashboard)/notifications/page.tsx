@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import useSWR, { useSWRConfig } from "swr";
 import { useNavData } from "@/hooks/useNavData";
 import { Check, X, BellOff, Calendar } from "lucide-react";
+import { useToast } from "@/components/providers/ToastProvider";
 
 interface JoinRequest {
   id: string; // group_members row id
@@ -35,15 +36,9 @@ export default function NotificationsPage() {
   const myGroupIds =
     ((navData as any)?.memberships || []).map((m: any) => m.group_id) || [];
 
-  const [toast, setToast] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [actingRequestIds, setActingRequestIds] = useState<string[]>([]);
   const [dismissingIds, setDismissingIds] = useState<string[]>([]);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    window.clearTimeout((showToast as any)._timer);
-    (showToast as any)._timer = window.setTimeout(() => setToast(null), 3000);
-  }
 
   // ----------------------------------------
   // A) Pending join requests for my active groups
@@ -155,7 +150,7 @@ console.log("JOIN REQUESTS RAW:", data);
 
         if (error) throw error;
 
-        showToast(`🎉 ${userName} is toegevoegd aan ${groupName}!`);
+        showToast(`${userName} is toegevoegd aan ${groupName}`, "success");
       } else {
         const { error } = await supabase
           .from("group_members")
@@ -164,7 +159,7 @@ console.log("JOIN REQUESTS RAW:", data);
 
         if (error) throw error;
 
-        showToast(`Afgewezen: ${userName} krijgt geen toegang.`);
+        showToast(`Afgewezen: ${userName} krijgt geen toegang.`, "info");
       }
 
       // nav data opnieuw ophalen zodat memberships / group-state up-to-date blijven
@@ -176,7 +171,8 @@ console.log("JOIN REQUESTS RAW:", data);
       showToast(
         approve
           ? `Kon ${userName} niet toevoegen`
-          : `Kon verzoek van ${userName} niet afwijzen`
+          : `Kon verzoek van ${userName} niet afwijzen`,
+        "error"
       );
     } finally {
       setActingRequestIds((prev) => prev.filter((id) => id !== requestId));
@@ -213,7 +209,7 @@ console.log("JOIN REQUESTS RAW:", data);
   
     } catch {
       mutatePersonal(previousNotifications, false);
-      showToast("Kon melding niet verwijderen.");
+      showToast("Kon melding niet verwijderen.", "error");
     } finally {
       setDismissingIds((prev) =>
         prev.filter((nId) => nId !== id)
@@ -225,14 +221,6 @@ console.log("JOIN REQUESTS RAW:", data);
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 pb-24 relative select-none bg-background text-foreground">
-      {toast && (
-        <div className="fixed bottom-20 left-4 right-4 z-50 flex justify-center pointer-events-none animate-in slide-in-from-bottom-4">
-          <div className="bg-neutral-900 text-white font-bold text-xs px-5 py-3.5 rounded-2xl shadow-2xl tracking-tight pointer-events-auto">
-            {toast}
-          </div>
-        </div>
-      )}
-
       <div className="border-b border-border pb-5">
         <h1 className="text-3xl font-black tracking-tight">Activiteit</h1>
         <p className="text-sm text-neutral-400 font-bold mt-0.5">

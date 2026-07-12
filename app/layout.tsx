@@ -5,12 +5,13 @@ import NavigationLayout from "@/components/NavigationLayout";
 import AppBadgeRegistry from "@/components/AppBadgeRegistry";
 import PushNotificationRegistry from "@/components/providers/PushNotificationRegistry";
 import { AppProviders } from "../components/providers/AppProviders";
+import { ToastProvider } from "@/components/providers/ToastProvider";
 import AppRegistry from "../components/AppRegistry";
 import ThemeListener from "@/components/ThemeListener";
 import OrientationLock from "@/components/OrientationLock";
 import "./globals.css";
 
-// 📱 Forceert iOS om de app-schaal te locken en voorkomt dat gebruikers per ongeluk in-zoomen
+// Forceert iOS om de app-schaal te locken en voorkomt dat gebruikers per ongeluk in-zoomen
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -40,7 +41,7 @@ export default function RootLayout({
     <ViewTransitions>
       <html lang="en" className="antialiased" suppressHydrationWarning>
         <head>
-          {/* 🛑 DE HEILIGE DRIE-EENHEID VOOR MAXIMALE APPLE NATIVE VIBE */}
+          {/* DE HEILIGE DRIE-EENHEID VOOR MAXIMALE APPLE NATIVE VIBE */}
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
           <meta name="apple-mobile-web-app-title" content="Hangout" />
@@ -49,7 +50,7 @@ export default function RootLayout({
           {/* Voorkomt dat iOS links buiten de PWA opent in Safari */}
           <meta name="mobile-web-app-capable" content="yes" />
 
-          {/* ⚡ THEMA PRE-LOAD SCRIPT (Voorkomt witte flits bij opstarten) */}
+          {/* THEMA PRE-LOAD SCRIPT (Voorkomt witte flits bij opstarten) */}
           <script
             dangerouslySetInnerHTML={{
               __html: `
@@ -73,13 +74,15 @@ export default function RootLayout({
           <div id="orientation-root">
             <div className="app-shell">
               <AppProviders>
-                <ThemeListener />
-                <AppRegistry />
-                <NavigationLayout>
-                  {children}
-                  <AppBadgeRegistry />
-                  <PushNotificationRegistry />
-                </NavigationLayout>
+                <ToastProvider>
+                  <ThemeListener />
+                  <AppRegistry />
+                  <NavigationLayout>
+                    {children}
+                    <AppBadgeRegistry />
+                    <PushNotificationRegistry />
+                  </NavigationLayout>
+                </ToastProvider>
               </AppProviders>
             </div>
           </div>

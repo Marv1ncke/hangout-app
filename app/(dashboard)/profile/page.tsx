@@ -126,7 +126,7 @@ export default function ProfilePage() {
     });
 
     setUploading(false);
-    setStatusMessage({ type: "success", text: "Profielfoto succesvol bijgewerkt! ✨" });
+    setStatusMessage({ type: "success", text: "Profielfoto succesvol bijgewerkt!" });
     mutateNav();
   }
 
@@ -160,7 +160,7 @@ export default function ProfilePage() {
       setStatusMessage({ type: "error", text: error.message });
       mutateNav(); 
     } else {
-      setStatusMessage({ type: "success", text: "Wijzigingen succesvol opgeslagen! ✨" });
+      setStatusMessage({ type: "success", text: "Wijzigingen succesvol opgeslagen!" });
       mutateNav();
     }
   }

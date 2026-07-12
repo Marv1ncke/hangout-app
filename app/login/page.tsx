@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
 
@@ -25,7 +26,9 @@ export default function LoginPage() {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         router.replace("/events");
+        return; // authChecking blijft true tot de redirect klaar is: geen flits van de vorm
       }
+      setAuthChecking(false);
     }
     checkSession();
   }, [router]);
@@ -89,6 +92,7 @@ export default function LoginPage() {
       }
 
       if (data.session) {
+        setAuthChecking(true);
         router.replace("/events");
       } else {
         setMessage(
@@ -112,7 +116,22 @@ export default function LoginPage() {
       return;
     }
 
+    setAuthChecking(true);
     router.replace("/events");
+  }
+
+  // --- CONSISTENTE LOADING-STATE: voorkomt elke flikkering, ongeacht
+  // laadtijd. Zolang we de sessie checken, of net succesvol inlogden en
+  // wachten op de redirect, tonen we altijd hetzelfde rustige scherm i.p.v.
+  // de login-vorm even te laten flitsen.
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3 animate-in fade-in-0 duration-200">
+          <div className="size-8 rounded-full border-2 border-border border-t-foreground animate-spin" />
+        </div>
+      </div>
+    );
   }
 
   // --- RENDER FORGOT PASSWORD VIEW ---
@@ -159,7 +178,7 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-btn-bg text-btn-text text-xs font-black p-4 rounded-xl active:scale-98 transition-all hover:bg-neutral-900 mt-4 tracking-tight cursor-pointer text-center disabled:opacity-50"
             >
-              {loading ? "Wacht even..." : "Wachtwoord herstellink sturen ✉️"}
+              {loading ? "Wacht even..." : "Wachtwoord herstellink sturen"}
             </button>
           </form>
 
@@ -184,7 +203,10 @@ export default function LoginPage() {
   // --- RENDER STANDARD LOGIN / REGISTER VIEW ---
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border bg-container-bg p-6 shadow-sm">
+      <div
+        style={{ viewTransitionName: "login-card" } as React.CSSProperties}
+        className="w-full max-w-md rounded-2xl border border-white/10 bg-container-bg/80 backdrop-blur-xl p-6 shadow-lg"
+      >
         <div className="mb-6">
           <h1 className="text-2xl font-bold">
             {mode === "login" ? "Welcome back" : "Create your account"}
@@ -271,7 +293,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full bg-btn-bg text-btn-text text-xs font-black p-4 rounded-xl active:scale-98 transition-all hover:bg-neutral-900 tracking-tight cursor-pointer text-center disabled:opacity-50"
               >
-                {loading ? "Inloggen..." : "Inloggen in Hangout 🚀"}
+                {loading ? "Inloggen..." : "Inloggen in Hangout"}
               </button>
             ) : (
               <button
@@ -279,7 +301,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full bg-btn-bg text-btn-text text-xs font-black p-4 rounded-xl active:scale-98 transition-all hover:bg-neutral-900 tracking-tight cursor-pointer text-center disabled:opacity-50"
               >
-                {loading ? "Account aanmaken..." : "Account aanmaken & meedoen ✨"}
+                {loading ? "Account aanmaken..." : "Account aanmaken & meedoen"}
               </button>
             )}
           </div>

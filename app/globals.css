@@ -294,6 +294,27 @@ html, body, #root, #__next {
 }
 
 /* ==========================================================================
+   LOGIN MORPH-TRANSITIE
+   De login-kaart heeft een eigen view-transition-name (zie login/page.tsx),
+   zodat de browser die apart morpht (positie/schaal/vorm) naar de content
+   op de volgende pagina i.p.v. mee te faden met de generieke root-crossfade.
+   ========================================================================== */
+::view-transition-group(login-card) {
+  animation-duration: 0.45s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-old(login-card),
+::view-transition-new(login-card) {
+  animation-duration: 0.45s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  mix-blend-mode: normal;
+}
+::view-transition-image-pair(login-card) {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+/* ==========================================================================
    FAKE PORTRAIT LOCK FOR iOS PWA LANDSCAPE
    ========================================================================== */
 

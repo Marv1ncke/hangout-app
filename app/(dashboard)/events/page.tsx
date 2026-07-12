@@ -172,7 +172,10 @@ export default function EventsPage() {
 
   if (navData === undefined) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center">
+      <div
+        style={{ viewTransitionName: "login-card" } as React.CSSProperties}
+        className="min-h-[50vh] rounded-2xl flex items-center justify-center"
+      >
         <div className="size-8 rounded-full border-2 border-border border-t-foreground animate-spin" />
       </div>
     );
