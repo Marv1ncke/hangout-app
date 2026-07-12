@@ -108,7 +108,7 @@ export default function EventsPage() {
   const activeGroupId = navData?.activeGroup?.id ?? null;
   const userId = navData?.user?.id ?? null;
   const safeGroupId = activeGroupId ?? "";
-  const { events, groupProfiles, mutate } = useEventsData(safeGroupId);
+  const { data: swrData, events, groupProfiles, mutate } = useEventsData(safeGroupId);
 
   const [currentView, setCurrentView] = useState<ViewType>("list");
   const [monthCursor, setMonthCursor] = useState(() => startOfDay(new Date()));
@@ -242,7 +242,12 @@ export default function EventsPage() {
     if (rsvpBusyId === ev.id) return;
     setRsvpBusyId(ev.id);
 
-    const previous = events;
+    // BELANGRIJK: previous moet de volledige SWR-envelope zijn ({events,
+    // groupProfiles}), niet de gederiveerde `events`-array. mutate(previous)
+    // met een kale array als eerste argument verving de cache-data met een
+    // array i.p.v. het verwachte object -> data.events werd undefined ->
+    // hele lijst viel terug op [] zodra de write hieronder faalde (bv. 400).
+    const previousData = swrData;
     mutate(
       (old: any) => {
         if (!old) return old;
@@ -277,8 +282,9 @@ export default function EventsPage() {
       // join bleek bij "not_going" soms een lege/foute set terug te geven,
       // wat de hele lijst leegmaakte in de UI. Simpelweg niet meer herladen
       // na een geslaagde write elimineert dat volledig.
-    } catch {
-      mutate(previous, false);
+    } catch (err) {
+      console.error("RSVP-write faalde:", err);
+      mutate(previousData, false);
     } finally {
       setRsvpBusyId(null);
     }

@@ -1,4 +1,3 @@
-// hooks/usePwaData.ts
 "use client";
 
 import useSWR from "swr";
@@ -6,11 +5,10 @@ import useSWR from "swr";
 export function useEventsData(groupId: string | undefined | null) {
   const { data, error, mutate } = useSWR(
     groupId ? `/api/events?groupId=${groupId}` : null,
-    {
-      keepPreviousData: true, // Houd de events in beeld tijdens herladen
-    }
+    { keepPreviousData: true }
   );
   return {
+    data,
     events: data?.events ?? [],
     groupProfiles: data?.groupProfiles ?? {},
     isLoading: !data && !error,
@@ -20,10 +18,7 @@ export function useEventsData(groupId: string | undefined | null) {
 
 export function useExpensesData(groupId: string | undefined | null) {
   const { data, error, mutate } = useSWR(
-    groupId ? `/api/expenses?groupId=${groupId}` : null,
-    {
-      keepPreviousData: true,
-    }
+    groupId ? `/api/expenses?groupId=${groupId}` : null
   );
   return {
     members: data?.members ?? [],
