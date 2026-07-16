@@ -1,93 +1,39 @@
-import React from "react";
-import { Metadata, Viewport } from "next";
-import { ViewTransitions } from "next-view-transitions";
-import NavigationLayout from "@/components/NavigationLayout";
-import AppBadgeRegistry from "@/components/AppBadgeRegistry";
-import PushNotificationRegistry from "@/components/providers/PushNotificationRegistry";
-import { AppProviders } from "../components/providers/AppProviders";
-import { ToastProvider } from "@/components/providers/ToastProvider";
-import AppRegistry from "../components/AppRegistry";
-import ThemeListener from "@/components/ThemeListener";
-import OrientationLock from "@/components/OrientationLock";
-import "./globals.css";
+import { ImageResponse } from "next/og";
 
-// Forceert iOS om de app-schaal te locken en voorkomt dat gebruikers per ongeluk in-zoomen
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  viewportFit: "cover", // Zorgt dat de app onder de notch/Dynamic Island doorloopt
-  themeColor: "#000000",
-};
+export const size = { width: 512, height: 512 };
+export const contentType = "image/png";
 
-export const metadata: Metadata = {
-  title: "Hangout",
-  description: "Jouw hangout app",
-  manifest: "/manifest.webmanifest", 
-  appleWebApp: {
-    capable: true, // HIERMEE BLIJF JE IN DE APP EN GA JE NIET NAAR SAFARI
-    title: "Hangout", // Dwingt de app-naam af op het thuisscherm
-    statusBarStyle: "black-translucent", // Naadloze zwarte statusbalk integratie
-  },
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <ViewTransitions>
-      <html lang="en" className="antialiased" suppressHydrationWarning>
-        <head>
-          {/* DE HEILIGE DRIE-EENHEID VOOR MAXIMALE APPLE NATIVE VIBE */}
-          <meta name="apple-mobile-web-app-capable" content="yes" />
-          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-          <meta name="apple-mobile-web-app-title" content="Hangout" />
-          <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-          
-          {/* Voorkomt dat iOS links buiten de PWA opent in Safari */}
-          <meta name="mobile-web-app-capable" content="yes" />
-
-          {/* THEMA PRE-LOAD SCRIPT (Voorkomt witte flits bij opstarten) */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  try {
-                    var storedTheme = localStorage.getItem('app-theme') || 'system';
-                    var isDark = storedTheme === 'dark' || (storedTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                    if (isDark) {
-                      document.documentElement.classList.add('dark');
-                    } else {
-                      document.documentElement.classList.add('light');
-                    }
-                  } catch (e) {}
-                })();
-              `,
-            }}
-          />
-        </head>
-          <body className="bg-background text-foreground overflow-x-hidden antialiased">
-          <OrientationLock />
-          <div id="orientation-root">
-            <div className="app-shell">
-              <AppProviders>
-                <ToastProvider>
-                  <ThemeListener />
-                  <AppRegistry />
-                  <NavigationLayout>
-                    {children}
-                    <AppBadgeRegistry />
-                    <PushNotificationRegistry />
-                  </NavigationLayout>
-                </ToastProvider>
-              </AppProviders>
-            </div>
-          </div>
-        </body>
-      </html>
-    </ViewTransitions>
+export default function Icon() {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          background: "#000000", 
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 115, /* Perfecte Apple squircle curve */
+        }}
+      >
+        <span
+          style={{
+            fontSize: 270,
+            color: "#ffffff",
+            fontFamily: "sans-serif",
+            fontWeight: 900,
+            textShadow: `
+              0 0 20px rgba(99, 102, 241, 0.8),  
+              0 0 40px rgba(168, 85, 247, 0.6),  
+              0 0 60px rgba(168, 85, 247, 0.4)
+            `,
+          }}
+        >
+          H
+        </span>
+      </div>
+    ),
+    { ...size }
   );
 }

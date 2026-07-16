@@ -10,10 +10,10 @@ import HapticButton from "@/components/HapticButton";
 import { Type, Sun, Moon, Laptop, User, Shield, Info } from "lucide-react";
 
 const AVAILABLE_FONTS = [
-  { id: "inherit", name: "Systeem Standaard", css: "system-ui, sans-serif" },
-  { id: "sans-serif", name: "Inter / Sans-Serif", css: "sans-serif" },
-  { id: "monospace", name: "JetBrains / Monospace", css: "monospace" },
-  { id: "Georgia, serif", name: "Editorial Serif", css: "Georgia, serif" },
+  { id: "inherit", name: "Standard", css: "system-ui, sans-serif" },
+  { id: "sans-serif", name: "Inter", css: "sans-serif" },
+  { id: "monospace", name: "Monospace", css: "monospace" },
+  { id: "Georgia, serif", name: "Editorial", css: "Georgia, serif" },
 ];
 
 type ThemeMode = "light" | "dark" | "system";
