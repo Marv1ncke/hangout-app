@@ -47,7 +47,7 @@ export default function LoginPage() {
     if (error) {
       setErrorText(error.message);
     } else {
-      setMessage("Check your inbox! We sent you a secure reset link.");
+      setMessage("Check your inbox. We sent you a secure reset link.");
     }
   }
 
@@ -172,7 +172,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* ⚡ AANGEPAST: GECORRIGEERDE DYNAMISCHE RESET KNOP */}
+            {/* AANGEPAST: GECORRIGEERDE DYNAMISCHE RESET KNOP */}
             <button
               type="submit"
               disabled={loading}
@@ -285,7 +285,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* ⚡ AANGEPAST: DYNAMISCHE SUBMIT KNOPPEN VOLLEDIG ONDERAAN HET FORMULIER */}
+          {/* AANGEPAST: DYNAMISCHE SUBMIT KNOPPEN VOLLEDIG ONDERAAN HET FORMULIER */}
           <div className="pt-2">
             {mode === "login" ? (
               <button

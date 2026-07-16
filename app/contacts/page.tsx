@@ -75,7 +75,7 @@ export default function ContactsPage() {
     });
     setSearchQuery("");
     setSearchResults([]);
-    alert("Vriendschapsverzoek verstuurd! 🚀");
+    alert("Vriendschapsverzoek verstuurd.");
   }
 
   async function acceptFriendRequest(requestId: string) {
@@ -149,7 +149,7 @@ export default function ContactsPage() {
       {/* INKOMENDE VERZOEKEN */}
       {pendingRequests.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-[10px] font-extrabold uppercase text-red-500 tracking-wider px-1">Vriendschapsverzoeken 🔥</h2>
+          <h2 className="text-[10px] font-extrabold uppercase text-red-500 tracking-wider px-1">Vriendschapsverzoeken</h2>
           <div className="space-y-1.5">
             {pendingRequests.map((req) => (
               <div key={req.id} className="flex items-center justify-between bg-background p-3 rounded-xl border border-border/60">
@@ -213,7 +213,7 @@ export default function ContactsPage() {
                 <div className="flex flex-wrap gap-1">
                   {mutualGroups.map((g, i) => (
                     <span key={i} className="bg-background text-neutral-800 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-border">
-                      👥 {g.name}
+                      {g.name}
                     </span>
                   ))}
                 </div>

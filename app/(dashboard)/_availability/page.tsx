@@ -116,7 +116,7 @@ export default function AvailabilityPage() {
     if (error) {
       alert(error.message);
     } else {
-      alert(" Event succesvol ingepland!");
+      alert("Event succesvol ingepland.");
       setEventTitle("");
       setEventLocation("");
       setStartTime("");

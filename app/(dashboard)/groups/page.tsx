@@ -7,7 +7,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
 import { useNavData } from "../../../hooks/useNavData";
 import { mutate } from "swr";
-import { Check, Share2, Copy, Users, Pencil, LogOut, X } from "lucide-react";
+import { Check, Share2, Copy, Users, Pencil, LogOut, X, Lock, Unlock } from "lucide-react";
 import { useGroupMembers } from "../../../hooks/useNavData"; 
 import { DragSheet } from "@/components/ui/drag-sheet";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -298,7 +298,7 @@ export default function GroupsPage() {
       return;
     }
 
-    showNotification("Groep toegevoegd!", `Je bent nu lid van ${targetGroup.name}`);
+    showNotification("Groep toegevoegd", `Je bent nu lid van ${targetGroup.name}`);
     setJoinCodeInput("");
     setShowJoinSheet(false);
     await forceNavRefresh();
@@ -562,8 +562,8 @@ export default function GroupsPage() {
                       <h3 className="font-bold text-sm truncate">{g.name}</h3>
                       {isActive && <Check size={13} strokeWidth={3} className="shrink-0" />}
                     </div>
-                    <p className={`text-[11px] font-medium truncate ${isActive ? "text-neutral-300" : "text-neutral-400"}`}>
-                      {g.is_protected ? "🔒" : "🔓"} Code: {g.join_code}
+                    <p className={`text-[11px] font-medium truncate flex items-center gap-1 ${isActive ? "text-neutral-300" : "text-neutral-400"}`}>
+                      {g.is_protected ? <Lock size={10} /> : <Unlock size={10} />} Code: {g.join_code}
                     </p>
                   </div>
 
@@ -640,24 +640,24 @@ export default function GroupsPage() {
               <button
                 type="button"
                 onClick={() => setIsProtected(false)}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
                   !isProtected
                     ? "bg-container-bg text-foreground shadow-3xs"
                     : "text-neutral-500"
                 }`}
               >
-                🔓 Open
+                <Unlock size={13} /> Open
               </button>
               <button
                 type="button"
                 onClick={() => setIsProtected(true)}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer ${
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
                   isProtected
                     ? "bg-container-bg text-foreground shadow-3xs"
                     : "text-neutral-500"
                 }`}
               >
-                🔒 Gesloten
+                <Lock size={13} /> Gesloten
               </button>
             </div>
           </div>

@@ -143,7 +143,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
     );
   }
 
-  // 🛑 Info is hier verwijderd uit de navigatie-items
+  // Info is hier verwijderd uit de navigatie-items
   const navItems = [
     { label: "Agenda", path: "/events", icon: <Calendar size={20} /> },
     { label: "Groepen", path: "/groups", icon: <Users size={20} /> },
@@ -258,7 +258,7 @@ export default function NavigationLayout({ children }: NavigationLayoutProps) {
           );
         })}
 
-        {/* ⚡ PROFIELKNOP (Perfect uitgelijnd, even groot en in dezelfde stijl als de rest) */}
+        {/* PROFIELKNOP (Perfect uitgelijnd, even groot en in dezelfde stijl als de rest) */}
         <Link 
           href="/profile" 
           onClick={() => {
