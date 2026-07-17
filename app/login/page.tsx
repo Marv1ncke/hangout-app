@@ -89,6 +89,15 @@ export default function LoginPage() {
           avatar_url: "",
           updated_at: new Date().toISOString(),
         });
+
+        // Server-side registratie van user-agent/land, geen permissie nodig
+        // (gewone request-headers). Fire-and-forget: mag nooit de signup-flow
+        // vertragen of blokkeren als het faalt.
+        fetch("/api/track-signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        }).catch(() => {});
       }
 
       if (data.session) {
