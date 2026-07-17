@@ -963,7 +963,7 @@ function CreateEventSheet(props: any) {
         <ToggleRow label="Locatie toevoegen" checked={hasLocation} onChange={setHasLocation} />
         {hasLocation && (
           <div className="space-y-2">
-            <input placeholder="Naam locatie (bv. Bij Sam)" value={locationName}
+            <input placeholder="Naam locatie" value={locationName}
               onChange={(e: any) => setLocationName(e.target.value)}
               className="w-full bg-background p-3 text-sm rounded-xl outline-none" />
             <AddressAutocomplete
