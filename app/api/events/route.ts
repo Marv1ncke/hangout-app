@@ -28,7 +28,6 @@ export async function GET(request: Request) {
 
   const supabase = getSupabaseForRequest(request);
 
-  // Veilige opvraag van groepsleden
   const { data: members } = await supabase
     .from("group_members")
     .select("user_id, profiles(id, full_name, avatar_url)")
@@ -40,7 +39,6 @@ export async function GET(request: Request) {
     if (m.profiles) profilesMap[m.profiles.id] = m.profiles;
   });
 
-  // Hoofdquery voor events incl. RSVPs
   const { data: events, error: eventsError } = await supabase
     .from("events")
     .select("*, event_rsvps(user_id, status)")

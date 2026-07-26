@@ -21,7 +21,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <SWRConfig 
       value={{ 
         fetcher,
-        revalidateOnFocus: false, // Voorkom herladen bij focus/klik wissels
+        revalidateOnFocus: false,
         revalidateOnReconnect: false 
       }}
     >
